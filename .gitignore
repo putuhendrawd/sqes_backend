@@ -1,0 +1,10 @@
+# ignore all .log and .err files
+*.log
+*.err
+
+# ignore credentials
+*credentials*
+*credential*
+
+# cache folder
+*pycache*
