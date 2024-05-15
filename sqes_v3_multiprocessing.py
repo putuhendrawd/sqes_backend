@@ -298,73 +298,84 @@ if __name__ == "__main__":
         print(f"{sys.argv[0]} Running Complete ({dt_end-dt_start})", flush=True)
         exit()
 
-    ## folder setup
-    # outputPSD = '/home/idripsensor/QCDATA/PSD/'+str(tahun)+'/'+sys.argv[1]
-    # outputPDF = '/var/www/html/dataqc/PDFimage/'+tgl
-    # dirsignal = '/var/www/html/dataqc/signal/'+tgl
-    # outputmseed = '/home/idripsensor/QCDATA/mseed/'+tgl
-    
-    ## folder setup (for development only)
+    # folder setup
     outputPSD = '/home/idripsensor/QCDATA/PSD/'+str(tahun)+'/'+sys.argv[1]
-    outputPDF = '/home/idripsensor/QCDATA/PDFimage/'+tgl
-    dirsignal = '/home/idripsensor/QCDATA/signal/'+tgl
+    outputPDF = '/var/www/html/dataqc/PDFimage/'+tgl
+    dirsignal = '/var/www/html/dataqc/signal/'+tgl
     outputmseed = '/home/idripsensor/QCDATA/mseed/'+tgl
+    
+    # ## folder setup (for development only)
+    # outputPSD = '/home/idripsensor/QCDATA/PSD/'+str(tahun)+'/'+sys.argv[1]
+    # outputPDF = '/home/idripsensor/QCDATA/PDFimage/'+tgl
+    # dirsignal = '/home/idripsensor/QCDATA/signal/'+tgl
+    # outputmseed = '/home/idripsensor/QCDATA/mseed/'+tgl
 
     create_directory(dirsignal)
     create_directory(outputPDF)
     create_directory(outputmseed)
     create_directory(os.path.dirname(outputPSD))
 
-    ## data source
-    client = Client(client_credentials['url'],user=client_credentials['user'],password=client_credentials['password'])
-    vprint('client connected:',is_client_connected(client))
-    mysql_pool = MySQLPool(**db_credentials)
-    mysql_pool.is_db_connected()
-    
-    ## query for 'not downloaded' data
-    db_query = f"SELECT kode_sensor,sistem_sensor FROM tb_slmon WHERE kode_sensor NOT IN (SELECT kode FROM (SELECT DISTINCT kode, COUNT(kode) AS ccode FROM tb_qcdetail WHERE tanggal=\'{tgl}\' GROUP BY kode) AS o WHERE o.ccode = 3)"
-    vprint("query:",db_query)
-    data = mysql_pool.execute(db_query)
-    vprint(data)
-    print(f"number of stations to be processed: {len(data)}", flush=True)
+    run_trigger = 1
+    while run_trigger>0 :
+        ## data source
+        client = Client(client_credentials['url'],user=client_credentials['user'],password=client_credentials['password'])
+        vprint('client connected:',is_client_connected(client))
+        mysql_pool = MySQLPool(**db_credentials)
+        mysql_pool.is_db_connected()
+        
+        ## query for 'not downloaded' data
+        db_query = f"SELECT kode_sensor,sistem_sensor FROM tb_slmon WHERE kode_sensor NOT IN (SELECT kode FROM (SELECT DISTINCT kode, COUNT(kode) AS ccode FROM tb_qcdetail WHERE tanggal=\'{tgl}\' GROUP BY kode) AS o WHERE o.ccode = 3)"
+        vprint("query:",db_query)
+        data = mysql_pool.execute(db_query)
+        vprint(data)
+        print(f"number of stations to be processed: {len(data)}", flush=True)
 
-    ## number of processes determination
-    _ = len(data) // 35 # number maximum item per processes
-    processes_req = processes_round(_)
-    print(f"processes required: {processes_req}", flush=True)
-    
-    ## create mysql connection based on number of processes
-    del(mysql_pool)
-    db_credentials['pool_size'] = 32 # process_req / # of pool
-    mysql_pool = MySQLPool(**db_credentials)
-    
-    ########### multiprocessing block ###########
-    if data:
-        with multiprocessing.Pool(processes=processes_req) as pool:
-            pool.map(process_data,data)
-        # with ThreadPoolExecutor(max_workers=4) as executor:
-        #     executor.map(process_data,data)
-    else:
-        vprint(f"Data {tgl} already complete")
-    ########### multiprocessing block ###########
-    
-    # update QC Analysis for not-downloading data above
-    vprint(f"Updating QC Data : {tgl}")
-    db_query = f"SELECT DISTINCT kode FROM tb_qcdetail WHERE tanggal=\'{tgl}\' AND kode NOT IN (SELECT DISTINCT kode_res FROM tb_qcres WHERE tanggal_res=\'{tgl}\')"
-    vprint("query:",db_query)
-    data = mysql_pool.execute(db_query)
-    print(f"number of stations to be QC Analysis processed: {len(data)}", flush=True)
-    vprint(data)
+        ## number of processes determination
+        _ = len(data) // 35 # number maximum item per processes
+        processes_req = processes_round(_)
+        print(f"processes required: {processes_req}", flush=True)
+        
+        ## create mysql connection based on number of processes
+        del(mysql_pool)
+        db_credentials['pool_size'] = 32 # process_req / # of pool
+        mysql_pool = MySQLPool(**db_credentials)
+        
+        ########### multiprocessing block ###########
+        if data:
+            with multiprocessing.Pool(processes=processes_req) as pool:
+                pool.map(process_data,data)
+            # with ThreadPoolExecutor(max_workers=4) as executor:
+            #     executor.map(process_data,data)
+        else:
+            vprint(f"Data {tgl} already complete")
+        ########### multiprocessing block ###########
+        
+        # update QC Analysis for data that are not auto downloaded by multiprocessing blocks
+        vprint(f"Updating QC Data : {tgl}")
+        db_query = f"SELECT DISTINCT kode FROM tb_qcdetail WHERE tanggal=\'{tgl}\' AND kode NOT IN (SELECT DISTINCT kode_res FROM tb_qcres WHERE tanggal_res=\'{tgl}\')"
+        vprint("query:",db_query)
+        data = mysql_pool.execute(db_query)
+        print(f"number of stations to be QC Analysis processed: {len(data)}", flush=True)
+        vprint(data)
 
-    counter_qc=1
-    if data:
-        for sta in data:
-            kode_qc = sta[0]
-            vprint(f"{counter_qc}. {kode_qc}")
-            Analysis.QC_Analysis(mysql_pool,tgl,kode_qc)
-            counter_qc+=1   
-    else:
-        vprint(f"QC Data {tgl} already complete")
+        counter_qc=1
+        if data:
+            for sta in data:
+                kode_qc = sta[0]
+                vprint(f"{counter_qc}. {kode_qc}")
+                Analysis.QC_Analysis(mysql_pool,tgl,kode_qc)
+                counter_qc+=1   
+        else:
+            vprint(f"QC Data {tgl} already complete")
+            
+        # check if all data already complete
+        del(data)
+        data = mysql_pool.execute(db_query)
+        if len(data) > 0:
+            vprint(f"Some data may incompletely processed, running from begining! ({run_trigger})")
+            run_trigger+=1
+        else:
+            run_trigger=0
 
     # datetime end 
     dt_end = datetime.now()

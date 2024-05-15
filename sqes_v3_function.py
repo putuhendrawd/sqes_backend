@@ -21,7 +21,7 @@ class MySQLPool(object):
     create a pool when connect mysql, which will decrease the time spent in 
     request connection, create connection and close connection.
     """
-    def __init__(self, host="172.0.0.1", port="3306", user="root",
+    def __init__(self, host="127.0.0.1", port="3306", user="root",
                  password="root", database="test", pool_name="sqes_pool",
                  pool_size=3, max_reconnect_attempts = 10):
         res = {}
@@ -32,6 +32,8 @@ class MySQLPool(object):
         self._database = database
         self._max_reconnect_attempts = max_reconnect_attempts
         self._reconnect_attempts = 0
+        self._pool_name = pool_name
+        self._pool_size = pool_size
         
         res["host"] = self._host
         res["port"] = self._port
@@ -87,17 +89,19 @@ class MySQLPool(object):
             if commit is True:
                 conn.commit()
                 self.close(conn, cursor)
+                self._reconnect_attempts = 0
                 return None
             else:
                 res = cursor.fetchall()
                 self.close(conn, cursor)
+                self._reconnect_attempts = 0
                 return res
         except mysql.connector.Error as e:
-            print(f"!! MySQLPool Error:{e}", flush=True)
+            print(f"!! MySQLPool Error: {e}", flush=True)
             return self.handle_error(conn, cursor, self.execute, sql, args=args, commit=commit)
         except IndexError as e:
             print(sql)
-            print(f"!! MySQLPool Error:{e}", flush=True)
+            print(f"!! MySQLPool Error: {e}", flush=True)
             return self.handle_error(conn, cursor, self.execute, sql, args=args, commit=commit)
 
     def executemany(self, sql, args, commit=False):
@@ -117,18 +121,20 @@ class MySQLPool(object):
             if commit is True:
                 conn.commit()
                 self.close(conn, cursor)
+                self._reconnect_attempts = 0
                 return None
             else:
                 res = cursor.fetchall()
                 self.close(conn, cursor)
+                self._reconnect_attempts = 0
                 return res
         except mysql.connector.Error as e:
-            print(f"!! MySQLPool Error:{e}", flush=True)
-            return self.handle_error(conn, cursor, self.executemany, sql, args, commit=commit)
+            print(f"!! MySQLPool Error: {e}", flush=True)
+            return self.handle_error(conn, cursor, self.executemany, sql, args=args, commit=commit)
         except IndexError as e:
             print(sql)
-            print(f"!! MySQLPool Error:{e}", flush=True)
-            return self.handle_error(conn, cursor, self.execute, sql, args=args, commit=commit)
+            print(f"!! MySQLPool Error: {e}", flush=True)
+            return self.handle_error(conn, cursor, self.executemany, sql, args=args, commit=commit)
         
     # connection checker
     def is_db_connected(self):
@@ -141,7 +147,7 @@ class MySQLPool(object):
             cursor.close()
             return True
         except mysql.connector.Error as e:
-            print(f"!! MySQLPool Error:{e}", flush=True)
+            print(f"!! MySQLPool Error: {e}", flush=True)
             return False
     
     def handle_error(self, conn, cursor, method, *args, **kwargs):
@@ -154,19 +160,21 @@ class MySQLPool(object):
                 self._reconnect_attempts += 1
                 self.close(conn, cursor)
                 # Attempt to reconnect
-                print(f"!! MySQLPool Attempting to reconnect... ({self._reconnect_attempts})")
-                self.pool = self.create_pool(**self.dbconfig)
+                print(f"!! MySQLPool Attempting to reconnect... ({self._reconnect_attempts})", flush=True)
+                time.sleep(5)
+                self.pool = self.create_pool(pool_name=self._pool_name, pool_size=self._pool_size)
                 # Re-run the original method
                 return method(*args, **kwargs)
             except Exception as e:
                 print(f"!! MySQLPool Error: Error while reconnecting: {e}", flush=True)
                 # Wait for a while before attempting to reconnect again
-                time.sleep(15*self._reconnect_attempts)
+                time.sleep(5)
                 return self.handle_error(conn, cursor, method, *args, **kwargs)
         else:
-            print("!! MySQLPool Error: Exceeded maximum reconnect attempts.")
+            print("!! MySQLPool Error: Exceeded maximum reconnect attempts.", flush=True)
+            print("!! Warning, some data may be skipped !!", flush=True)
             
-    def print(self):
+    def print_db(self):
         print(self.dbconfig, flush=True)
     
 class Calculation():
@@ -347,7 +355,7 @@ class Analysis():
         sql = f"SELECT * FROM tb_qcres WHERE tanggal_res = \'{tanggal}\' AND kode_res = \'{station}\'"
         # print(sql)
         data=pool.execute(sql)
-        print(f"number of qcdata available: {len(data) }", flush=True)
+        print(f"number of qcdata available: {len(data)}", flush=True)
         if data:
             print(f"! Data {station} on {tanggal} available, flushing database!", flush=True)
             sql = f"DELETE FROM tb_qcres WHERE tanggal_res = \'{tanggal}\' AND kode_res = \'{station}\'"
