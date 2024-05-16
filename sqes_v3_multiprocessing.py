@@ -9,7 +9,7 @@ import os, sys, time, requests , signal
 import numpy as np
 import json
 
-from obspy import UTCDateTime, read, read_inventory
+from obspy import UTCDateTime, read_inventory
 from obspy.clients.fdsn import Client
 from obspy.imaging.cm import pqlx
 from sqes_v3_function import Calculation, Analysis, MySQLPool
@@ -62,7 +62,7 @@ def is_client_connected(client):
 # download data function
 def DownloadData(client, sta, time0, time1, c):
     signal.signal(signal.SIGALRM, handle_timeout)
-    signal.alarm(360)
+    signal.alarm(600)
     try:
         channel_codes = ["SH"+c, "BH"+c, "HH"+c]
         for channel_code in channel_codes:
@@ -316,7 +316,7 @@ if __name__ == "__main__":
     create_directory(os.path.dirname(outputPSD))
 
     run_trigger = 1
-    while run_trigger>0 :
+    while run_trigger > 0 :
         ## data source
         client = Client(client_credentials['url'],user=client_credentials['user'],password=client_credentials['password'])
         vprint('client connected:',is_client_connected(client))
@@ -324,9 +324,9 @@ if __name__ == "__main__":
         mysql_pool.is_db_connected()
         
         ## query for 'not downloaded' data
-        db_query = f"SELECT kode_sensor,sistem_sensor FROM tb_slmon WHERE kode_sensor NOT IN (SELECT kode FROM (SELECT DISTINCT kode, COUNT(kode) AS ccode FROM tb_qcdetail WHERE tanggal=\'{tgl}\' GROUP BY kode) AS o WHERE o.ccode = 3)"
-        vprint("query:",db_query)
-        data = mysql_pool.execute(db_query)
+        db_query_a = f"SELECT kode_sensor,sistem_sensor FROM tb_slmon WHERE kode_sensor NOT IN (SELECT kode FROM (SELECT DISTINCT kode, COUNT(kode) AS ccode FROM tb_qcdetail WHERE tanggal=\'{tgl}\' GROUP BY kode) AS o WHERE o.ccode = 3)"
+        vprint("query:",db_query_a)
+        data = mysql_pool.execute(db_query_a)
         vprint(data)
         print(f"number of stations to be processed: {len(data)}", flush=True)
 
@@ -352,9 +352,9 @@ if __name__ == "__main__":
         
         # update QC Analysis for data that are not auto downloaded by multiprocessing blocks
         vprint(f"Updating QC Data : {tgl}")
-        db_query = f"SELECT DISTINCT kode FROM tb_qcdetail WHERE tanggal=\'{tgl}\' AND kode NOT IN (SELECT DISTINCT kode_res FROM tb_qcres WHERE tanggal_res=\'{tgl}\')"
-        vprint("query:",db_query)
-        data = mysql_pool.execute(db_query)
+        db_query_b = f"SELECT DISTINCT kode FROM tb_qcdetail WHERE tanggal=\'{tgl}\' AND kode NOT IN (SELECT DISTINCT kode_res FROM tb_qcres WHERE tanggal_res=\'{tgl}\')"
+        vprint("query:",db_query_b)
+        data = mysql_pool.execute(db_query_b)
         print(f"number of stations to be QC Analysis processed: {len(data)}", flush=True)
         vprint(data)
 
@@ -370,12 +370,15 @@ if __name__ == "__main__":
             
         # check if all data already complete
         del(data)
-        data = mysql_pool.execute(db_query)
-        if len(data) > 0:
+        data_a = mysql_pool.execute(db_query_a)
+        data_b = mysql_pool.execute(db_query_b)
+        if (len(data_a) > 0) or (len(data_b) > 0):
             vprint(f"Some data may incompletely processed, running from begining! ({run_trigger})")
             run_trigger+=1
+            del(data_a,data_b)
         else:
             run_trigger=0
+            del(data_a,data_b)
 
     # datetime end 
     dt_end = datetime.now()
