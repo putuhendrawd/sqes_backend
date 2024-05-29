@@ -1,0 +1,21 @@
+--- sqes_v3_multiprocessing.py ---
+Verbose: True
+NPZ matrix saving: False
+running start at 2024-05-17 12:57:19.598833
+/var/www/html/dataqc/signal/2024-01-20 exists
+/var/www/html/dataqc/PDFimage/2024-01-20 exists
+/home/idripsensor/QCDATA/mseed/2024-01-20 exists
+/home/idripsensor/QCDATA/PSD/2024 exists
+client connected: True
+query: SELECT kode_sensor,sistem_sensor FROM tb_slmon WHERE kode_sensor NOT IN (SELECT kode FROM (SELECT DISTINCT kode, COUNT(kode) AS ccode FROM tb_qcdetail WHERE tanggal='2024-01-20' GROUP BY kode) AS o WHERE o.ccode = 3)
+[]
+number of stations to be processed: 0
+processes required: 4
+Data 2024-01-20 already complete
+Updating QC Data : 2024-01-20
+query: SELECT DISTINCT kode FROM tb_qcdetail WHERE tanggal='2024-01-20' AND kode NOT IN (SELECT DISTINCT kode_res FROM tb_qcres WHERE tanggal_res='2024-01-20')
+number of stations to be QC Analysis processed: 0
+[]
+QC Data 2024-01-20 already complete
+running end at 2024-05-17 12:57:29.230124
+sqes_v3_multiprocessing.py Running Complete (0:00:09.631291)
