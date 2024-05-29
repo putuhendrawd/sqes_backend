@@ -161,7 +161,7 @@ class MySQLPool(object):
                 self.close(conn, cursor)
                 # Attempt to reconnect
                 print(f"!! MySQLPool Attempting to reconnect... ({self._reconnect_attempts})", flush=True)
-                time.sleep(5)
+                time.sleep(60)
                 self.pool = self.create_pool(pool_name=self._pool_name, pool_size=self._pool_size)
                 # Re-run the original method
                 return method(*args, **kwargs)
