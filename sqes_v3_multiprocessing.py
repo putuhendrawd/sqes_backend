@@ -194,28 +194,39 @@ def process_data(sta):
             time.sleep(1) #make res to the process
             continue
         
-        vprint(f"{id_kode} Process final parameter")
-        ppsds.plot(filename=f"{outputPDF}/{kode}_{cha[-1]}_PDF.png",cmap=pqlx,show=False)
-        period, psd1 = ppsds.get_percentile()
-        ind = period <= 100
-        period = period[ind]
-        psd1 = psd1[ind]
-        powers = sorted(range(-190,-90+1), reverse=True)
-        NHNM, NLNM, PInd = Calculation.get_models(period,powers)
-        period = period[PInd]
-        psd1 = psd1[PInd]
-        dcg = Calculation.dead_channel_gsn(psd1,np.array(NLNM),period)
-        pctH, pctL=Calculation.pct_model(psd1,NHNM,NLNM)
-        pctH = str(pctH); pctL = str(pctL)
-        diff20_100 = Calculation.pct_model_period(psd1,np.array(NHNM),period,20,100)
-        diff5_20 = Calculation.pct_model_period(psd1,np.array(NHNM),period,5,20)
-        diff5 = Calculation.pct_model_period(psd1,np.array(NHNM),period,0.1,5)
-        diff20_100 = str(diff20_100); diff5_20 = str(diff5_20); diff5 = str(diff5);
-        period, psd1 = ppsds.get_mean()
-        ind = period <= 100
-        period = period[ind]
-        psd1 = psd1[ind]
-        dcl = Calculation.dead_channel_lin(psd1,period,fs)
+        # final parameter processing
+        try:
+            signal.alarm(1200) # add 20 min maximum processing for the final parameter processing
+            vprint(f"{id_kode} Process final parameter")
+            ppsds.plot(filename=f"{outputPDF}/{kode}_{cha[-1]}_PDF.png",cmap=pqlx,show=False)
+            period, psd1 = ppsds.get_percentile()
+            ind = period <= 100
+            period = period[ind]
+            psd1 = psd1[ind]
+            powers = sorted(range(-190,-90+1), reverse=True)
+            NHNM, NLNM, PInd = Calculation.get_models(period,powers)
+            period = period[PInd]
+            psd1 = psd1[PInd]
+            dcg = Calculation.dead_channel_gsn(psd1,np.array(NLNM),period)
+            pctH, pctL=Calculation.pct_model(psd1,NHNM,NLNM)
+            pctH = str(pctH); pctL = str(pctL)
+            diff20_100 = Calculation.pct_model_period(psd1,np.array(NHNM),period,20,100)
+            diff5_20 = Calculation.pct_model_period(psd1,np.array(NHNM),period,5,20)
+            diff5 = Calculation.pct_model_period(psd1,np.array(NHNM),period,0.1,5)
+            diff20_100 = str(diff20_100); diff5_20 = str(diff5_20); diff5 = str(diff5);
+            period, psd1 = ppsds.get_mean()
+            ind = period <= 100
+            period = period[ind]
+            psd1 = psd1[ind]
+            dcl = Calculation.dead_channel_lin(psd1,period,fs)
+            signal.alarm(0)
+        except Exception as e:
+            print(f"caught {type(e)}: {e}", flush=True)
+            print(f"!! {id_kode} processing final parameter error - Skip Processing with default parameter", flush=True)
+            sql=sql_default(id_kode,kode,tgl,cha,rms,ratioamp,psdata,ngap,nover,num_spikes)
+            sql_execommit(pool,id_kode,sistem_sensor,tgl,sql) # tgl from global var
+            time.sleep(1) #make res to the process
+            continue
         
         # commit result
         sql = f"INSERT INTO tb_qcdetail (id_kode, kode, tanggal, komp, rms, ratioamp, avail, ngap, nover, num_spikes, pct_above, pct_below, dead_channel_lin, dead_channel_gsn, diff20_100, diff5_20, diff5) VALUES (\'{id_kode}\', \'{kode}\', \'{tgl}\', \'{cha}\', \'{rms}\', \'{ratioamp}\', \'{psdata}\', \'{ngap}\', \'{nover}\', \'{num_spikes}\', \'{pctH}\', \'{pctL}\', \'{str(round(dcl,2))}\', \'{str(round(dcg,2))}\', \'{diff20_100}\', \'{diff5_20}\', \'{diff5}\')"
