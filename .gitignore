@@ -2,6 +2,11 @@
 *.log
 *.err
 
+# create sample .log and .err
+!sample.log
+!sample_batch.log
+!sample.err
+!sample_batch.err
 # ignore credentials
 *credentials*
 *credential*
