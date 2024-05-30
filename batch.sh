@@ -27,7 +27,7 @@ do
         name=$name-$i
     fi
     ### running
-    nohup timeout -14400 python3 sqes_v3_multiprocessing.py $date verbose > log/m-$name.log 2> error/m-$name.err &
+    nohup timeout -14400 python3 bin/sqes_v3_multiprocessing.py $date verbose > log/m-$name.log 2> error/m-$name.err &
     pid=$!
     echo "Running $date with pid: $pid"
     wait $pid
