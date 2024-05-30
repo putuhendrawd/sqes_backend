@@ -2,15 +2,19 @@
 *.log
 *.err
 
-# create sample .log and .err
+# add sample .log and .err
 !sample.log
 !sample_batch.log
 !sample.err
 !sample_batch.err
+# add all sample
+!sample*
 
 # ignore credentials
 *credentials*
 *credential*
 
+# ignore config.ini
+config.ini
 # cache folder
 *pycache*
