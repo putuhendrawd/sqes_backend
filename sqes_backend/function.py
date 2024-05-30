@@ -8,6 +8,7 @@ from obspy.signal.quality_control import MSEEDMetadata
 from obspy.clients.fdsn import Client
 from numpy.polynomial.polynomial import polyfit
 from obspy import read_inventory
+from configparser import ConfigParser
 
 class InventoryMissing(ValueError):
 	pass
@@ -15,6 +16,22 @@ class InventoryMissing(ValueError):
 class DataMissing(ValueError):
 	pass
 
+class Config():
+    def load_config(filename='database.ini', section='postgresql'):
+        parser=ConfigParser()
+        parser.read(filename)
+        
+        # get db config
+        config={}
+        if parser.has_section(section):
+            params = parser.items(section)
+            for param in params:
+                config[param[0]] = param[1]
+        else:
+            raise Exception(f'Section {section} not found in the {filename} file')
+        
+        return config
+    
 class MySQLPool(object):
     """
     based on: https://stackoverflow.com/questions/24374058/accessing-a-mysql-connection-pool-from-python-multiprocessing

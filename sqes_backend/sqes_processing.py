@@ -11,7 +11,7 @@ import json
 from obspy import UTCDateTime, read, read_inventory
 from obspy.clients.fdsn import Client
 from obspy.imaging.cm import pqlx
-from sqes_v3_function import PSD_Calculation, Analysis
+from putu.sqes_v3_backend.bin.function import PSD_Calculation, Analysis
 from datetime import datetime
 
 print(f"--- {sys.argv[0]} ---")

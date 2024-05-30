@@ -12,7 +12,7 @@ import json
 from obspy import UTCDateTime, read_inventory
 from obspy.clients.fdsn import Client
 from obspy.imaging.cm import pqlx
-from sqes_v3_function import Calculation, Analysis, MySQLPool
+from putu.sqes_v3_backend.bin.function import Calculation, Analysis, MySQLPool
 from datetime import datetime
 
 import multiprocessing
