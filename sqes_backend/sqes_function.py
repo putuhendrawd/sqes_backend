@@ -9,6 +9,7 @@ from obspy.clients.fdsn import Client
 from numpy.polynomial.polynomial import polyfit
 from obspy import read_inventory
 from configparser import ConfigParser
+from typing import Dict
 
 class InventoryMissing(ValueError):
 	pass
@@ -17,7 +18,8 @@ class DataMissing(ValueError):
 	pass
 
 class Config():
-    def load_config(filename='database.ini', section='postgresql'):
+    @staticmethod
+    def load_config(filename : str='config.ini', section:str='postgresql') -> Dict[str,str]:
         module_path = os.path.dirname(os.path.abspath(__file__))
         config_path = os.path.join(module_path, '..', 'config', filename)
         
