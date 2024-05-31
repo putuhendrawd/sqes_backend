@@ -4,7 +4,7 @@ date=`date -d "today" --utc +'%Y%m%d'`
 echo "################ $date #################"
 #################### naming #########################
 name="$date"
-if [[ -e ../logs/../logs/log/stations_update-$name.log || -L ../logs/log/stations_update-$name.log ]] ; then
+if [[ -e ../logs/log/stations_update-$name.log || -L ../logs/log/stations_update-$name.log ]] ; then
     i=1
     while [[ -e ../logs/log/stations_update-$name-$i.log || -L ../logs/log/stations_update-$name-$i.log ]] ; do
         let i++

@@ -19,15 +19,15 @@ for date in ${dates[@]}
 do
     ### naming overwrite preventor
     name="$date"
-    if [[ -e log/m-$name.log || -L log/m-$name.log ]] ; then
+    if [[ -e ../logs/log/multiprocessing-$name.log || -L ../logs/log/multiprocessing-$name.log ]] ; then
         i=1
-        while [[ -e log/m-$name-$i.log || -L log/m-$name-$i.log ]] ; do
+        while [[ -e ../logs/log/multiprocessing-$name-$i.log || -L ../logs/log/multiprocessing-$name-$i.log ]] ; do
             let i++
         done
         name=$name-$i
     fi
     ### running
-    nohup timeout -14400 python3 bin/sqes_v3_multiprocessing.py $date verbose > log/m-$name.log 2> error/m-$name.err &
+    nohup timeout -14400 python3 ../sqes_backend/sqes_v3_multiprocessing.py $date verbose > ../logs/log/multiprocessing-$name.log 2> ../logs/error/multiprocessing-$name.err &
     pid=$!
     echo "Running $date with pid: $pid"
     wait $pid
