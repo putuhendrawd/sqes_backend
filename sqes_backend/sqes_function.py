@@ -1,6 +1,7 @@
 from obspy.signal import PPSD
 import os, sys, math, mysql.connector, time
 from mysql.connector.pooling import MySQLConnectionPool
+import psycopg2
 import numpy as np
 from scipy import stats
 import pandas as pd
@@ -36,7 +37,159 @@ class Config():
             raise Exception(f'Section {section} not found in the {filename} file')
         
         return config
+
+class PostgresSQLPool(object):
+    """
+    create a pool when connect postgresql using psycopg2, which will decrease the time spent in 
+    request connection, create connection and close connection.
+    """
+    def __init__(self, host="127.0.0.1", port="5432", user="postgres",
+                 password="password", database="test", pool_name="postgres_pool",
+                 pool_size=3, max_reconnect_attempts=10):
+        self._host = host
+        self._port = port
+        self._user = user
+        self._password = password
+        self._database = database
+        self._max_reconnect_attempts = max_reconnect_attempts
+        self._reconnect_attempts = 0
+        self._pool_name = pool_name
+        self._pool_size = pool_size
+        self.dbconfig = {
+            "host": self._host,
+            "port": self._port,
+            "user": self._user,
+            "password": self._password,
+            "database": self._database
+        }
+        self.pool = self.create_pool(pool_size=pool_size)
     
+    def create_pool(self, pool_size=3):
+        """
+        Create a connection pool. After creation, the request for connecting
+        to PostgreSQL can get a connection from this pool instead of creating
+        a new connection each time.
+        :param pool_size: The size of the pool, default is 3
+        :return: Connection pool
+        """
+        try:
+            pool = psycopg2.pool.SimpleConnectionPool( # type: ignore
+                1, self._pool_size, **self.dbconfig
+            )
+            return pool
+        except Exception as e:
+            print(f"Error creating connection pool: {str(e)}")
+            return None
+    
+    def get_connection(self):
+        """
+        Get a connection from the pool.
+        :return: A PostgreSQL connection
+        """
+        try:
+            return self.pool.getconn()
+        except Exception as e:
+            print(f"Error getting connection: {str(e)}")
+            return None
+        
+    def release_connection(self, conn):
+        """
+        Release a connection back to the pool.
+        :param conn: The PostgreSQL connection to be released
+        """
+        try:
+            self.pool.putconn(conn)
+        except Exception as e:
+            print(f"Error releasing connection: {str(e)}")
+            
+    def close_all(self):
+        """
+        Close all connections in the pool.
+        """
+        try:
+            self.pool.closeall()
+        except Exception as e:
+            print(f"Error closing all connections: {str(e)}")
+    
+    def close(self, conn, cursor):
+        """
+        Close cursor and release connection.
+        :param conn: The PostgreSQL connection to be released
+        :param cursor: The cursor to be closed
+        """
+        cursor.close()
+        self.release_connection(conn)
+        
+    def execute(self, sql, args=None, commit=False):
+        """
+        Execute a SQL command, optionally with arguments and commit.
+        :param sql: SQL statement to execute
+        :param args: Arguments for the SQL statement
+        :param commit: Whether to commit the transaction
+        :return: Result of the query if not committing, otherwise None
+        """
+        conn = self.get_connection()
+        if conn is None:
+            print("Failed to get connection")
+            return None
+        cursor = conn.cursor()
+        try:
+            if args:
+                cursor.execute(sql, args)
+            else:
+                cursor.execute(sql)
+            if commit:
+                conn.commit()
+                self.close(conn, cursor)
+                self._reconnect_attempts = 0
+                return None
+            else:
+                res = cursor.fetchall()
+                self.close(conn, cursor)
+                self._reconnect_attempts = 0
+                return res
+        except psycopg2.Error as e:
+            print(f"!! PostgresConnectionPool Error: {e}", flush=True)
+            return self.handle_error(conn, cursor, self.execute, sql, args=args, commit=commit)
+        except IndexError as e:
+            print(sql)
+            print(f"!! PostgresConnectionPool Error: {e}", flush=True)
+            return self.handle_error(conn, cursor, self.execute, sql, args=args, commit=commit)
+    
+    def check_connections(self):
+        """
+        Check the connections in the pool to ensure they are still active.
+        Reconnect if necessary.
+        """
+        success = True
+        for i in range(self._pool_size):
+            conn = self.get_connection()
+            if conn:
+                cursor = conn.cursor()
+                try:
+                    cursor.execute("SELECT 1;")
+                    print(f"Connection {i+1} is active.")
+                except psycopg2.Error:
+                    print(f"Connection {i+1} lost. Reconnecting...")
+                    success = False
+                    self.pool.putconn(conn, close=True)
+                    new_conn = self.pool.getconn()
+                    self.pool.putconn(new_conn)
+                    print(f"Connection {i+1} reestablished.")
+                finally:
+                    self.close(conn,cursor)
+            else:
+                print(f"Failed to get connection {i+1} for checking.")
+                success = False
+
+        if success:
+            print("All connections are active and healthy.")
+        else:
+            print("Some connections were reestablished.")
+                
+    def print_db(self):
+        print(self.__dict__, flush=True)
+        
 class MySQLPool(object):
     """
     based on: https://stackoverflow.com/questions/24374058/accessing-a-mysql-connection-pool-from-python-multiprocessing
@@ -195,7 +348,28 @@ class MySQLPool(object):
         else:
             print("!! MySQLPool Error: Exceeded maximum reconnect attempts.", flush=True)
             print("!! Warning, some data may be skipped !!", flush=True)
-            
+    
+    def check_connections(self):
+        """
+        Check the connections in the pool to ensure they are still active.
+        Reconnect if necessary.
+        """
+        for _ in range(self._pool_size):
+            conn = self.get_connection()
+            if conn:
+                cursor = conn.cursor()
+                try:
+                    cursor.execute("SELECT 1;")
+                except psycopg2.Error:
+                    print("Connection lost. Reconnecting...")
+                    self.pool.putconn(conn, close=True)
+                    new_conn = self.pool.getconn()
+                    self.pool.putconn(new_conn)
+                finally:
+                    self.close(conn,cursor)
+            else:
+                print("Failed to get connection for checking")
+
     def print_db(self):
         print(self.dbconfig, flush=True)
     
