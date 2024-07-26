@@ -44,6 +44,9 @@ for station in stations_db.code:
     # concanate data
     sensor_df = pd.concat([sensor_df,temp_df], ignore_index=True)
 
+    # remove unavailable sensor data
+    sensor_df = sensor_df[sensor_df.sensor != "xxx"]
+
     # clear
     del(temp_df)
 
