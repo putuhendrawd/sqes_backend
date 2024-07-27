@@ -14,7 +14,8 @@ print(f"--- {sys.argv[0]} ---", flush=True)
 # connect db
 db_config = Config.load_config(section="postgresql") 
 engine = psycopg2.connect(**db_config) # type: ignore
-engine2 = create_engine('postgresql+psycopg2://sqes:idrip4bmkg@182.16.248.174/sqes')
+postgres_engine = Config.load_config(section="postgresql-engine")
+engine2 = create_engine(postgres_engine["engine"])
 
 # load stations db
 stations_db = pd.read_sql('select code,latitude,longitude from stations', con=engine)
