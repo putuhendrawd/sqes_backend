@@ -246,7 +246,7 @@ if __name__ == "__main__":
     # multiprocessing.set_start_method("spawn")
     
     # basic command prompt
-    vprint(f"--- {sys.argv[0]} ---")
+    print(f"--- {sys.argv[0]} ---", flush=True)
     if len(sys.argv) < 2:
         print(
     f'''
