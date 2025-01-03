@@ -2,7 +2,7 @@
 startdate=$1
 enddate=$2
 
-echo "running batch process for sqes_v3_multiprocessing.py"
+echo "running batch_flush process for sqes_v3_multiprocessing.py"
 dt1="$(date +"%Y-%m-%d %H:%M:%S.%3N")"
 echo "Start date and time: $dt1"
 ### searching for dates ###
@@ -27,7 +27,7 @@ do
         name=$name-$i
     fi
     ### running
-    nohup timeout 4h python3 ../sqes_backend/sqes_v3_multiprocessing.py $date verbose > ../logs/log/$name.log 2> ../logs/error/$name.err &
+    nohup timeout 4h python3 ../sqes_backend/sqes_v3_multiprocessing.py $date verbose flush > ../logs/log/$name.log 2> ../logs/error/$name.err &
     pid=$!
     echo "Running $date with pid: $pid"
     wait $pid
