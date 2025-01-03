@@ -55,7 +55,7 @@ for station in stations_db.code:
 # push to database
 print("--------------------------------------------------------------------------------------------")
 print("Pushing data to Database")
-sensor_df.to_sql('sensors', con=engine2, if_exists='replace', index=False)
+sensor_df.to_sql('stations_sensor', con=engine2, if_exists='replace', index=False)
 
 # details
 print("--------------------------------------------------------------------------------------------")
