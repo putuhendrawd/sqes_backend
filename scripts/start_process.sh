@@ -13,4 +13,4 @@ if [[ -e ../logs/log/$name.log || -L ../logs/log/$name.log ]] ; then
 fi
 #################### running #########################
 # nohup python3 sqes_v3_processing.py $date verbose > log/$name.log 2> error/$wname.err &
-nohup timeout -14400 python3 ../sqes_backend/sqes_multiprocessing.py $date verbose > ../logs/log/$name.log 2> ../logs/error/$name.err &
+nohup timeout 4h python3 ../sqes_backend/sqes_multiprocessing.py $date verbose > ../logs/log/$name.log 2> ../logs/error/$name.err &
