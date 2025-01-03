@@ -1,20 +1,19 @@
 import warnings
+
+from pyparsing import C
 warnings.simplefilter("ignore", UserWarning) # obspy UserWarning ignore, use carefully
+from cycler import V
 import matplotlib
 matplotlib.use('Agg')
-from pandas.plotting import register_matplotlib_converters
-register_matplotlib_converters()
-
+from pandas.plotting import register_matplotlib_converters; register_matplotlib_converters()
 import os, sys, time, requests , signal
 import numpy as np
 import json
-
 from obspy import UTCDateTime, read_inventory
 from obspy.clients.fdsn import Client
 from obspy.imaging.cm import pqlx
-from putu.sqes_v3_backend.bin.function import Calculation, Analysis, MySQLPool
+from sqes_function import Calculation, Analysis, MySQLPool, Config
 from datetime import datetime
-
 import multiprocessing
 # from concurrent.futures import ThreadPoolExecutor
 
@@ -33,9 +32,7 @@ def handle_timeout(signum,frame):
 def processes_round(x, base=2):
     min_value = 4
     max_value = multiprocessing.cpu_count() // 3
-    
     rounded_value = base * round(x / base)
-    
     if rounded_value < min_value:
         return min_value
     elif rounded_value > max_value:
@@ -64,14 +61,14 @@ def DownloadData(client, sta, time0, time1, c):
     signal.signal(signal.SIGALRM, handle_timeout)
     signal.alarm(600)
     try:
-        channel_codes = ["SH"+c, "BH"+c, "HH"+c]
+        channel_codes = [f"SH{c}", f"BH{c}"] # [f"SH{c}", f"BH{c}", f"HH{c}"]
         for channel_code in channel_codes:
             network = "*" if channel_code == f"BH{c}" else "IA"
             try:
                 st = client.get_waveforms(network, sta, "*", channel_code, time0, time1)
                 if st.count() > 0:
                     try:
-                        inv = read_inventory("https://geof.bmkg.go.id/fdsnws/station/1/query?station=" + sta + "&level=response&nodata=404")
+                        inv = read_inventory(f"https://geof.bmkg.go.id/fdsnws/station/1/query?station={sta}&level=response&nodata=404")
                         return st, inv
                     except:
                         return st, None
@@ -111,10 +108,11 @@ def sql_execommit(pool,id_kode,sistem_sensor,tgl,sql):
 def process_data(sta):   
     # timeout function
     signal.signal(signal.SIGALRM, handle_timeout)
-    
+    # open credentials
+    db_credentials = Config.load_config(section='mysql')
     kode = sta[0]
     sistem_sensor = sta[1]
-    pool = mysql_pool # mysql_pool from global var
+    pool = MySQLPool(**db_credentials) # type: ignore
     channel = ['E','N','Z']
     vprint(f"<{sistem_sensor}> {kode} PROCESS START")
     for ch in channel:
@@ -128,8 +126,8 @@ def process_data(sta):
             sql=sql_default(id_kode,kode,tgl,ch,'0','0','0','1','0','0') # tgl from global var
             # vprint(sql)
             sql_execommit(pool,id_kode,sistem_sensor,tgl,sql) # tgl from global var
-            print(f"!! {id_kode} No Data - Continuing", flush=True)
-            time.sleep(1) #make res to the process
+            vprint(f"!! {id_kode} No Data - Continuing")
+            time.sleep(0.5) #make res to the process
             continue
         else:
             vprint(f"{id_kode} Download complete")
@@ -141,14 +139,14 @@ def process_data(sta):
             fs = sig[0].stats.sampling_rate
             mseed_naming_code = f"{outputmseed}/{kode}_{cha[-1]}.mseed"
             sig.write(mseed_naming_code)
-            sig.plot(outfile=f"{dirsignal}/{kode}_{cha[-1]}_signal.png")
+            sig.plot(outfile=f"{outputsignal}/{kode}_{cha[-1]}_signal.png")
             signal.alarm(0)
         except Exception as e:
-            print(f"caught {type(e)}: {e}", flush=True)
+            vprint(f"caught {type(e)}: {e}")
             sql=sql_default(id_kode,kode,tgl,ch,'0','0','0','1','0','0') # tgl from global var
             sql_execommit(pool,id_kode,sistem_sensor,tgl,sql) # tgl from global var
-            print(f"!! {id_kode} Skip Processing with default parameter", flush=True)
-            time.sleep(1) #make res to the process
+            vprint(f"!! {id_kode} Skip Processing with default parameter")
+            time.sleep(0.5) #make res to the process
             continue
         
         # process for basic info of the mseed
@@ -159,8 +157,8 @@ def process_data(sta):
             sql=sql_default(id_kode,kode,tgl,ch,'0','0','0','1','0','0') # tgl from global var
             # vprint(sql)
             sql_execommit(pool,id_kode,sistem_sensor,tgl,sql) # tgl from global var
-            print(f"!! {id_kode} miniseed basic process error - Skip Processing", flush=True)
-            time.sleep(1) #make res to the process
+            vprint(f"!! {id_kode} miniseed basic process error - Skip Processing")
+            time.sleep(0.5) #make res to the process
             continue
         
         ampmax=abs(ampmax); ampmin=abs(ampmin); 
@@ -171,10 +169,10 @@ def process_data(sta):
         # skip high gap data
         if int(ngap)>2000:
             sql=sql_default(id_kode,kode,tgl,cha,rms,ratioamp,psdata,ngap,nover,num_spikes) # tgl from global var
-            # vprint(sql)
-            sql_execommit(pool,id_kode,sistem_sensor,sql)
-            print(f"!! {id_kode} high gap - Continuing with default parameter", flush=True)
-            time.sleep(1) #make res to the process
+            # vprint("ngap except",sql)
+            sql_execommit(pool,id_kode,sistem_sensor,tgl,sql)
+            vprint(f"!! {id_kode} high gap - Continuing with default parameter")
+            time.sleep(.5) #make res to the process
             continue
         
         # processing ppsds
@@ -183,23 +181,23 @@ def process_data(sta):
             ppsds = Calculation.prosess_psd(sig,inv,output=outputPSD)
         else:
             vprint(f"{id_kode} Process PPSDS")
-            ppsds = Calculation.prosess_psd(sig,inv,output=None)
+            ppsds = Calculation.prosess_psd(sig,inv,output='')
             
         # skip ppsds processing error
-        if not ppsds or not ppsds._times_processed:
+        if not ppsds or not ppsds._times_processed: # type: ignore
             sql=sql_default(id_kode,kode,tgl,cha,rms,ratioamp,psdata,ngap,nover,num_spikes) # tgl from global var
             # vprint(sql)
             sql_execommit(pool,id_kode,sistem_sensor,tgl,sql) # tgl from global var
-            print(f"!! {id_kode} prosess_psd failed - Continuing without ppsd processing", flush=True)
-            time.sleep(1) #make res to the process
+            vprint(f"!! {id_kode} prosess_psd failed - Continuing without ppsd processing")
+            time.sleep(.5) #make res to the process
             continue
         
         # final parameter processing
         try:
             signal.alarm(1200) # add 20 min maximum processing for the final parameter processing
             vprint(f"{id_kode} Process final parameter")
-            ppsds.plot(filename=f"{outputPDF}/{kode}_{cha[-1]}_PDF.png",cmap=pqlx,show=False)
-            period, psd1 = ppsds.get_percentile()
+            ppsds.plot(filename=f"{outputPDF}/{kode}_{cha[-1]}_PDF.png",cmap=pqlx,show=False) # type: ignore
+            period, psd1 = ppsds.get_percentile() # type: ignore
             ind = period <= 100
             period = period[ind]
             psd1 = psd1[ind]
@@ -214,18 +212,18 @@ def process_data(sta):
             diff5_20 = Calculation.pct_model_period(psd1,np.array(NHNM),period,5,20)
             diff5 = Calculation.pct_model_period(psd1,np.array(NHNM),period,0.1,5)
             diff20_100 = str(diff20_100); diff5_20 = str(diff5_20); diff5 = str(diff5);
-            period, psd1 = ppsds.get_mean()
+            period, psd1 = ppsds.get_mean() # type: ignore
             ind = period <= 100
             period = period[ind]
             psd1 = psd1[ind]
             dcl = Calculation.dead_channel_lin(psd1,period,fs)
             signal.alarm(0)
         except Exception as e:
-            print(f"caught {type(e)}: {e}", flush=True)
-            print(f"!! {id_kode} processing final parameter error - Skip Processing with default parameter", flush=True)
+            vprint(f"caught {type(e)}: {e}")
+            vprint(f"!! {id_kode} processing final parameter error - Skip Processing with default parameter")
             sql=sql_default(id_kode,kode,tgl,cha,rms,ratioamp,psdata,ngap,nover,num_spikes)
             sql_execommit(pool,id_kode,sistem_sensor,tgl,sql) # tgl from global var
-            time.sleep(1) #make res to the process
+            time.sleep(0.5) #make res to the process
             continue
         
         # commit result
@@ -233,8 +231,8 @@ def process_data(sta):
         # vprint(sql)
         (f"{id_kode} Saving to database")
         sql_execommit(pool,id_kode,sistem_sensor,tgl,sql) # tgl from global var
-        print(f"{id_kode} Process finish", flush=True)
-        time.sleep(1) #make res to the process
+        vprint(f"{id_kode} Process finish")
+        time.sleep(.5) #make res to the process
     # print process finish
     vprint(f"<{sistem_sensor}> {kode} PROCESS FINISH")
     # run qc analysis
@@ -248,35 +246,39 @@ if __name__ == "__main__":
     # multiprocessing.set_start_method("spawn")
     
     # basic command prompt
-    print(f"--- {sys.argv[0]} ---", flush=True)
+    vprint(f"--- {sys.argv[0]} ---")
     if len(sys.argv) < 2:
-        print(
+        vprint(
     f'''
     This script is used to re-download and re-analyze data from basic function olahqc_seismo.py 
     based on database availability by auto checking unavailable data
 
     How To Use:
-    python3 olahqc_seismo_correction.py <time> [verbose] [npz]
+    python3 sqes_multiprocessing.py <time> [verbose] [npz]
     time: (str) time format using %Y%m%d
-    verbose: (str) will make verbose = True 
+    verbose: (str) will make verbose output (verbose = True) 
     npz: (str) will save matrix parameter as npz (numpy matrix)
+    flush: (str) will flush entire data at the time selected and running it from zero
 
     Requirement:
-    db_credentials.json
-    client_credentials.json
+    config.ini in "config" folder
 
     Running Directory: {os.getcwd()}
-    ''', flush=True)
+    ''')
         exit()
     
     #verbose checker
     verbose = True if "verbose" in sys.argv else False
-    print(f"Verbose: {verbose}", flush=True) 
+    vprint(f"Verbose: {verbose}") 
     
     # save NPZ
     pdf_trigger = True if "npz" in sys.argv else False
-    print(f"NPZ matrix saving: {pdf_trigger}", flush=True) 
+    vprint(f"NPZ matrix saving: {pdf_trigger}") 
     
+    # flush data
+    flush_data = True if "flush" in sys.argv else False
+    print(f"Flush Data Mode: {flush_data}", flush=True)
+
     # datetime start 
     dt_start = datetime.now()
     vprint(f"running start at {dt_start}")
@@ -290,38 +292,32 @@ if __name__ == "__main__":
         tgl = time0.strftime("%Y-%m-%d")
         time1 = time0 + 86400
     except:
-        print(f"!! time input error : {sys.argv[1]}", flush=True)
+        vprint(f"!! time input error : {sys.argv[1]}")
         dt_end = datetime.now()
         vprint(f"running end at {dt_end}")
-        print(f"{sys.argv[0]} Running Complete ({dt_end-dt_start})", flush=True)
+        vprint(f"{sys.argv[0]} Running Complete ({dt_end-dt_start})")
         exit()
 
-    ## load credentials
+    ## load credentials and config
     try:
-        with open("client_credentials.json") as f:
-            client_credentials = json.load(f)
-        with open("db_credentials.json") as f:
-            db_credentials = json.load(f)
+        basic_config = Config.load_config(section='basic')
+        client_credentials = Config.load_config(section='client')
+        db_credentials = Config.load_config(section=basic_config['use_database'])
+        
     except:
-        print(f"!! client/db_credentials not found", flush=True)
+        vprint(f"!! client/db_credentials not found")
         dt_end = datetime.now()
         vprint(f"running end at {dt_end}")
-        print(f"{sys.argv[0]} Running Complete ({dt_end-dt_start})", flush=True)
+        vprint(f"{sys.argv[0]} Running Complete ({dt_end-dt_start})")
         exit()
 
     # folder setup
-    outputPSD = '/home/idripsensor/QCDATA/PSD/'+str(tahun)+'/'+sys.argv[1]
-    outputPDF = '/var/www/html/dataqc/PDFimage/'+tgl
-    dirsignal = '/var/www/html/dataqc/signal/'+tgl
-    outputmseed = '/home/idripsensor/QCDATA/mseed/'+tgl
-    
-    # ## folder setup (for development only)
-    # outputPSD = '/home/idripsensor/QCDATA/PSD/'+str(tahun)+'/'+sys.argv[1]
-    # outputPDF = '/home/idripsensor/QCDATA/PDFimage/'+tgl
-    # dirsignal = '/home/idripsensor/QCDATA/signal/'+tgl
-    # outputmseed = '/home/idripsensor/QCDATA/mseed/'+tgl
+    outputPSD = os.path.join(basic_config['outputpsd'],str(tahun),sys.argv[1])
+    outputPDF = os.path.join(basic_config['outputpdf'],str(tgl))
+    outputsignal = os.path.join(basic_config['outputsignal'],str(tgl))
+    outputmseed = os.path.join(basic_config['outputmseed'],str(tgl))
 
-    create_directory(dirsignal)
+    create_directory(outputsignal)
     create_directory(outputPDF)
     create_directory(outputmseed)
     create_directory(os.path.dirname(outputPSD))
@@ -331,29 +327,35 @@ if __name__ == "__main__":
         ## data source
         client = Client(client_credentials['url'],user=client_credentials['user'],password=client_credentials['password'])
         vprint('client connected:',is_client_connected(client))
-        mysql_pool = MySQLPool(**db_credentials)
+        mysql_pool = MySQLPool(**db_credentials) # type: ignore
         mysql_pool.is_db_connected()
         
         ## query for 'not downloaded' data
-        db_query_a = f"SELECT kode_sensor,sistem_sensor FROM tb_slmon WHERE kode_sensor NOT IN (SELECT kode FROM (SELECT DISTINCT kode, COUNT(kode) AS ccode FROM tb_qcdetail WHERE tanggal=\'{tgl}\' GROUP BY kode) AS o WHERE o.ccode = 3)"
+        if flush_data:
+            db_query_a = f"SELECT kode_sensor,sistem_sensor FROM tb_slmon"
+        else:
+            db_query_a = f"SELECT kode_sensor,sistem_sensor FROM tb_slmon WHERE kode_sensor NOT IN (SELECT kode FROM (SELECT DISTINCT kode, COUNT(kode) AS ccode FROM tb_qcdetail WHERE tanggal=\'{tgl}\' GROUP BY kode) AS o WHERE o.ccode = 3)"  
         vprint("query:",db_query_a)
         data = mysql_pool.execute(db_query_a)
         vprint(data)
-        print(f"number of stations to be processed: {len(data)}", flush=True)
+        vprint(f"number of stations to be processed: {len(data)}") # type: ignore
 
         ## number of processes determination
-        _ = len(data) // 35 # number maximum item per processes
-        processes_req = processes_round(_)
-        print(f"processes required: {processes_req}", flush=True)
+        if basic_config['cpu_number_used']:
+            processes_req = basic_config['cpu_number_used']
+        else:
+            _ = len(data) // 35  # number maximum item per processes # type: ignore
+            processes_req = processes_round(_)
+        vprint(f"multiprocessing processes created: {processes_req}")
         
         ## create mysql connection based on number of processes
         del(mysql_pool)
-        db_credentials['pool_size'] = 32 # process_req / # of pool
-        mysql_pool = MySQLPool(**db_credentials)
+        # db_credentials['pool_size'] = 32 # process_req / # of pool
+        mysql_pool = MySQLPool(**db_credentials) # type: ignore
         
         ########### multiprocessing block ###########
         if data:
-            with multiprocessing.Pool(processes=processes_req) as pool:
+            with multiprocessing.Pool(processes=processes_req) as pool: # type: ignore
                 pool.map(process_data,data)
             # with ThreadPoolExecutor(max_workers=4) as executor:
             #     executor.map(process_data,data)
@@ -366,7 +368,7 @@ if __name__ == "__main__":
         db_query_b = f"SELECT DISTINCT kode FROM tb_qcdetail WHERE tanggal=\'{tgl}\' AND kode NOT IN (SELECT DISTINCT kode_res FROM tb_qcres WHERE tanggal_res=\'{tgl}\')"
         vprint("query:",db_query_b)
         data = mysql_pool.execute(db_query_b)
-        print(f"number of stations to be QC Analysis processed: {len(data)}", flush=True)
+        vprint(f"number of stations to be QC Analysis processed: {len(data)}") # type: ignore
         vprint(data)
 
         counter_qc=1
@@ -383,7 +385,7 @@ if __name__ == "__main__":
         del(data)
         data_a = mysql_pool.execute(db_query_a)
         data_b = mysql_pool.execute(db_query_b)
-        if (len(data_a) > 0) or (len(data_b) > 0):
+        if (len(data_a) > 0) or (len(data_b) > 0): # type: ignore
             vprint(f"Some data may incompletely processed, running from begining! ({run_trigger})")
             run_trigger+=1
             del(data_a,data_b)
@@ -394,4 +396,4 @@ if __name__ == "__main__":
     # datetime end 
     dt_end = datetime.now()
     vprint(f"running end at {dt_end}")
-    print(f"{sys.argv[0]} Running Complete ({dt_end-dt_start})", flush=True)
+    vprint(f"{sys.argv[0]} Running Complete ({dt_end-dt_start})")
