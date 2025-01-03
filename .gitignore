@@ -3,15 +3,17 @@
 *.err
 
 # ignore credentials and config
-*credentials*
 *credential*
-config*
+*config*
 
 # ignore temporary file
 *temp*
 
 # vscode cache
 .vscode
+
+# ignore venv
+.venv*
 
 # cache folder
 *pycache*
