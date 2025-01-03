@@ -114,7 +114,7 @@ def process_data(sta):
     sistem_sensor = sta[1]
     pool = MySQLPool(**db_credentials) # type: ignore
     channel = ['E','N','Z']
-    vprint(f"<{sistem_sensor}> {kode} PROCESS START")
+    print(f"<{sistem_sensor}> {kode} PROCESS START", flush=True)
     for ch in channel:
         # make labeler
         id_kode = f"{kode}_{ch}_{tgl}" # tgl from global var
@@ -126,7 +126,7 @@ def process_data(sta):
             sql=sql_default(id_kode,kode,tgl,ch,'0','0','0','1','0','0') # tgl from global var
             # vprint(sql)
             sql_execommit(pool,id_kode,sistem_sensor,tgl,sql) # tgl from global var
-            vprint(f"!! {id_kode} No Data - Continuing")
+            print(f"!! {id_kode} No Data - Continuing", flush=True)
             time.sleep(0.5) #make res to the process
             continue
         else:
@@ -145,7 +145,7 @@ def process_data(sta):
             vprint(f"caught {type(e)}: {e}")
             sql=sql_default(id_kode,kode,tgl,ch,'0','0','0','1','0','0') # tgl from global var
             sql_execommit(pool,id_kode,sistem_sensor,tgl,sql) # tgl from global var
-            vprint(f"!! {id_kode} Skip Processing with default parameter")
+            print(f"!! {id_kode} Skip Processing with default parameter", flush=True)
             time.sleep(0.5) #make res to the process
             continue
         
@@ -157,7 +157,7 @@ def process_data(sta):
             sql=sql_default(id_kode,kode,tgl,ch,'0','0','0','1','0','0') # tgl from global var
             # vprint(sql)
             sql_execommit(pool,id_kode,sistem_sensor,tgl,sql) # tgl from global var
-            vprint(f"!! {id_kode} miniseed basic process error - Skip Processing")
+            print(f"!! {id_kode} miniseed basic process error - Skip Processing", flush=True)
             time.sleep(0.5) #make res to the process
             continue
         
@@ -171,7 +171,7 @@ def process_data(sta):
             sql=sql_default(id_kode,kode,tgl,cha,rms,ratioamp,psdata,ngap,nover,num_spikes) # tgl from global var
             # vprint("ngap except",sql)
             sql_execommit(pool,id_kode,sistem_sensor,tgl,sql)
-            vprint(f"!! {id_kode} high gap - Continuing with default parameter")
+            print(f"!! {id_kode} high gap - Continuing with default parameter", flush=True)
             time.sleep(.5) #make res to the process
             continue
         
@@ -188,7 +188,7 @@ def process_data(sta):
             sql=sql_default(id_kode,kode,tgl,cha,rms,ratioamp,psdata,ngap,nover,num_spikes) # tgl from global var
             # vprint(sql)
             sql_execommit(pool,id_kode,sistem_sensor,tgl,sql) # tgl from global var
-            vprint(f"!! {id_kode} prosess_psd failed - Continuing without ppsd processing")
+            print(f"!! {id_kode} prosess_psd failed - Continuing without ppsd processing", flush=True)
             time.sleep(.5) #make res to the process
             continue
         
@@ -220,7 +220,7 @@ def process_data(sta):
             signal.alarm(0)
         except Exception as e:
             vprint(f"caught {type(e)}: {e}")
-            vprint(f"!! {id_kode} processing final parameter error - Skip Processing with default parameter")
+            print(f"!! {id_kode} processing final parameter error - Skip Processing with default parameter", flush=True)
             sql=sql_default(id_kode,kode,tgl,cha,rms,ratioamp,psdata,ngap,nover,num_spikes)
             sql_execommit(pool,id_kode,sistem_sensor,tgl,sql) # tgl from global var
             time.sleep(0.5) #make res to the process
@@ -229,12 +229,12 @@ def process_data(sta):
         # commit result
         sql = f"INSERT INTO tb_qcdetail (id_kode, kode, tanggal, komp, rms, ratioamp, avail, ngap, nover, num_spikes, pct_above, pct_below, dead_channel_lin, dead_channel_gsn, diff20_100, diff5_20, diff5) VALUES (\'{id_kode}\', \'{kode}\', \'{tgl}\', \'{cha}\', \'{rms}\', \'{ratioamp}\', \'{psdata}\', \'{ngap}\', \'{nover}\', \'{num_spikes}\', \'{pctH}\', \'{pctL}\', \'{str(round(dcl,2))}\', \'{str(round(dcg,2))}\', \'{diff20_100}\', \'{diff5_20}\', \'{diff5}\')"
         # vprint(sql)
-        (f"{id_kode} Saving to database")
+        vprint(f"{id_kode} Saving to database")
         sql_execommit(pool,id_kode,sistem_sensor,tgl,sql) # tgl from global var
         vprint(f"{id_kode} Process finish")
         time.sleep(.5) #make res to the process
     # print process finish
-    vprint(f"<{sistem_sensor}> {kode} PROCESS FINISH")
+    print(f"<{sistem_sensor}> {kode} PROCESS FINISH", flush=True)
     # run qc analysis
     Analysis.QC_Analysis(pool,tgl,kode) # tgl from global var
     time.sleep(.5) #make res to the process
@@ -248,7 +248,7 @@ if __name__ == "__main__":
     # basic command prompt
     vprint(f"--- {sys.argv[0]} ---")
     if len(sys.argv) < 2:
-        vprint(
+        print(
     f'''
     This script is used to re-download and re-analyze data from basic function olahqc_seismo.py 
     based on database availability by auto checking unavailable data
@@ -264,16 +264,16 @@ if __name__ == "__main__":
     config.ini in "config" folder
 
     Running Directory: {os.getcwd()}
-    ''')
+    ''', flush=True)
         exit()
     
     #verbose checker
     verbose = True if "verbose" in sys.argv else False
-    vprint(f"Verbose: {verbose}") 
+    print(f"Verbose: {verbose}", flush=True) 
     
     # save NPZ
     pdf_trigger = True if "npz" in sys.argv else False
-    vprint(f"NPZ matrix saving: {pdf_trigger}") 
+    print(f"NPZ matrix saving: {pdf_trigger}", flush=True) 
     
     # flush data
     flush_data = True if "flush" in sys.argv else False
@@ -281,7 +281,7 @@ if __name__ == "__main__":
 
     # datetime start 
     dt_start = datetime.now()
-    vprint(f"running start at {dt_start}")
+    print(f"running start at {dt_start}", flush=True)
 
     ## basic input
     try:
@@ -292,10 +292,10 @@ if __name__ == "__main__":
         tgl = time0.strftime("%Y-%m-%d")
         time1 = time0 + 86400
     except:
-        vprint(f"!! time input error : {sys.argv[1]}")
+        print(f"!! time input error : {sys.argv[1]}", flush=True)
         dt_end = datetime.now()
-        vprint(f"running end at {dt_end}")
-        vprint(f"{sys.argv[0]} Running Complete ({dt_end-dt_start})")
+        print(f"running end at {dt_end}", flush=True)
+        print(f"{sys.argv[0]} Running Complete ({dt_end-dt_start})", flush=True)
         exit()
 
     ## load credentials and config
@@ -305,10 +305,10 @@ if __name__ == "__main__":
         db_credentials = Config.load_config(section=basic_config['use_database'])
         
     except:
-        vprint(f"!! client/db_credentials not found")
+        print(f"!! client/db_credentials not found")
         dt_end = datetime.now()
-        vprint(f"running end at {dt_end}")
-        vprint(f"{sys.argv[0]} Running Complete ({dt_end-dt_start})")
+        print(f"running end at {dt_end}", flush=True)
+        print(f"{sys.argv[0]} Running Complete ({dt_end-dt_start})", flush=True)
         exit()
 
     # folder setup
@@ -326,7 +326,7 @@ if __name__ == "__main__":
     while run_trigger > 0 :
         ## data source
         client = Client(client_credentials['url'],user=client_credentials['user'],password=client_credentials['password'])
-        vprint('client connected:',is_client_connected(client))
+        print('client connected:',is_client_connected(client), flush=True)
         mysql_pool = MySQLPool(**db_credentials) # type: ignore
         mysql_pool.is_db_connected()
         
@@ -338,7 +338,7 @@ if __name__ == "__main__":
         vprint("query:",db_query_a)
         data = mysql_pool.execute(db_query_a)
         vprint(data)
-        vprint(f"number of stations to be processed: {len(data)}") # type: ignore
+        print(f"number of stations to be processed: {len(data)}", flush=True) # type: ignore
 
         ## number of processes determination
         if basic_config['cpu_number_used']:
@@ -346,7 +346,7 @@ if __name__ == "__main__":
         else:
             _ = len(data) // 35  # number maximum item per processes # type: ignore
             processes_req = processes_round(_)
-        vprint(f"multiprocessing processes created: {processes_req}")
+        print(f"multiprocessing processes created: {processes_req}", flush=True)
         
         ## create mysql connection based on number of processes
         del(mysql_pool)
@@ -360,11 +360,11 @@ if __name__ == "__main__":
             # with ThreadPoolExecutor(max_workers=4) as executor:
             #     executor.map(process_data,data)
         else:
-            vprint(f"Data {tgl} already complete")
+            print(f"Data {tgl} already complete", flush=True)
         ########### multiprocessing block ###########
         
         # update QC Analysis for data that are not auto downloaded by multiprocessing blocks
-        vprint(f"Updating QC Data : {tgl}")
+        print(f"Updating QC Data : {tgl}", flush=True)
         db_query_b = f"SELECT DISTINCT kode FROM tb_qcdetail WHERE tanggal=\'{tgl}\' AND kode NOT IN (SELECT DISTINCT kode_res FROM tb_qcres WHERE tanggal_res=\'{tgl}\')"
         vprint("query:",db_query_b)
         data = mysql_pool.execute(db_query_b)
@@ -379,14 +379,14 @@ if __name__ == "__main__":
                 Analysis.QC_Analysis(mysql_pool,tgl,kode_qc)
                 counter_qc+=1   
         else:
-            vprint(f"QC Data {tgl} already complete")
+            print(f"QC Data {tgl} already complete", flush=True)
             
         # check if all data already complete
         del(data)
         data_a = mysql_pool.execute(db_query_a)
         data_b = mysql_pool.execute(db_query_b)
         if (len(data_a) > 0) or (len(data_b) > 0): # type: ignore
-            vprint(f"Some data may incompletely processed, running from begining! ({run_trigger})")
+            print(f"Some data may incompletely processed, running from begining! ({run_trigger})", flush=True)
             run_trigger+=1
             del(data_a,data_b)
         else:
@@ -395,5 +395,5 @@ if __name__ == "__main__":
 
     # datetime end 
     dt_end = datetime.now()
-    vprint(f"running end at {dt_end}")
-    vprint(f"{sys.argv[0]} Running Complete ({dt_end-dt_start})")
+    print(f"running end at {dt_end}", flush=True)
+    print(f"{sys.argv[0]} Running Complete ({dt_end-dt_start})", flush=True)
