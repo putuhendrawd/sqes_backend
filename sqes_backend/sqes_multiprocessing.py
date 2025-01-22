@@ -1,8 +1,5 @@
 import warnings
-
-from pyparsing import C
 warnings.simplefilter("ignore", UserWarning) # obspy UserWarning ignore, use carefully
-from cycler import V
 import matplotlib
 matplotlib.use('Agg')
 from pandas.plotting import register_matplotlib_converters; register_matplotlib_converters()
