@@ -484,11 +484,11 @@ class Calculation():
         NPZFNAME = '_{}.npz'
         data = sig.copy()
         if inventory is None:
-            raise InventoryMissing('Please provide inventory file')
-            return
+            print('Please provide inventory file')
+            return None
         if data.count() == 0:
-            raise DataMissing('No data in mseed file')
-            return
+            print('No data in mseed file')
+            return None
         data.merge()
         ppsds = {}
         if data[0].stats.npts<=3600*data[0].stats.sampling_rate:
