@@ -2,6 +2,8 @@
 #################### basic input ####################
 date=20240306
 echo "################ $date #################"
+CONFIG_FILE="../config/config.ini"
+SQES_PYTHON_PATH=$(awk -F= '/^python_path/ {print $2}' $CONFIG_FILE | tr -d '[:space:]')
 #################### naming #########################
 name="$date"
 if [[ -e ../logs/log/$name.log || -L ../logs/log/$name.log ]] ; then
@@ -13,4 +15,4 @@ if [[ -e ../logs/log/$name.log || -L ../logs/log/$name.log ]] ; then
 fi
 #################### running #########################
 # nohup python3 sqes_v3_processing.py $date verbose > log/$name.log 2> error/$wname.err &
-nohup timeout 4h python3 ../sqes_backend/sqes_multiprocessing.py $date verbose > ../logs/log/$name.log 2> ../logs/error/$name.err &
+nohup $SQES_PYTHON_PATH ../sqes_backend/sqes_multiprocessing.py $date verbose > ../logs/log/$name.log 2> ../logs/error/$name.err &

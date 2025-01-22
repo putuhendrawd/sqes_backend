@@ -1,8 +1,8 @@
 #!/bin/bash
 # startdate=$1
 # enddate=$2
-startdate=20240110
-enddate=20240111
+startdate=20241215
+enddate=20241215
 
 ### naming overwrite preventor
 name=`date -d "today" --utc +'%Y%m%d'`
