@@ -58,7 +58,7 @@ def DownloadData(client, sta, time0, time1, c):
     signal.signal(signal.SIGALRM, handle_timeout)
     signal.alarm(600)
     try:
-        channel_codes = [f"SH{c}", f"BH{c}"] # [f"SH{c}", f"BH{c}", f"HH{c}"]
+        channel_codes = [f"SH{c}", f"BH{c}", f"HH{c}"] # [f"SH{c}", f"BH{c}", f"HH{c}"]
         for channel_code in channel_codes:
             network = "*" if channel_code == f"BH{c}" else "IA"
             try:
