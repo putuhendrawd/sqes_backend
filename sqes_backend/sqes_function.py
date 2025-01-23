@@ -198,7 +198,7 @@ class MySQLPool(object):
     """
     def __init__(self, host="127.0.0.1", port="3306", user="root",
                  password="root", database="test", pool_name="sqes_pool",
-                 pool_size=32, max_reconnect_attempts=3):
+                 pool_size=10, max_reconnect_attempts=3):
         res = {}
         self._host = host
         self._port = port
