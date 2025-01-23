@@ -1,9 +1,11 @@
 #!/bin/bash
 #################### basic input ####################
-date=20240306
-echo "################ $date #################"
+date=`date -d "1 day ago" --utc +'%Y%m%d'`
+del_date=`date -d "3 day ago" --utc +'%Y-%m-%d'`
 CONFIG_FILE="../config/config.ini"
 SQES_PYTHON_PATH=$(awk -F= '/^python_path/ {print $2}' $CONFIG_FILE | tr -d '[:space:]')
+SQES_STORAGE_PATH=$(awk -F= '/^storage_path/ {print $2}' $CONFIG_FILE | tr -d '[:space:]')
+rm -r -f $SQES_STORAGE_PATH/$del_date
 #################### naming #########################
 name="$date"
 if [[ -e ../logs/log/$name.log || -L ../logs/log/$name.log ]] ; then
