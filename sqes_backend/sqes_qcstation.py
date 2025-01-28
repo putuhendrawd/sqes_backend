@@ -236,11 +236,11 @@ mysql_pool = MySQLPool(**db_credentials)
 client = Client(client_credentials['url'],user=client_credentials['user'],password=client_credentials['password'])
 
 # query station list
-skipped = pd.read_csv("../files/temp/skipped_280125_3.txt", delim_whitespace=True)
 db_query_a = f"SELECT kode_sensor,lat_sensor,lon_sensor FROM tb_slmon"
 tb_slmon = mysql_pool.execute(db_query_a)
 # # ONLY RUN BELOW IF U WANT TO FILTER STATION ###########################
 # # Filter list
+# skipped = pd.read_csv("../files/temp/skipped_280125_3.txt", delim_whitespace=True)
 # filter_list = skipped.sta.to_list()
 # # Filtering the data
 # tb_slmon = [item for item in tb_slmon if item[0] in filter_list]
