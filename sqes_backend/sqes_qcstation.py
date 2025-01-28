@@ -51,6 +51,13 @@ def is_client_connected(client):
     except (requests.ConnectionError, requests.Timeout):
         return False
 
+def get_location_info(st):
+    location = []
+    for tr in st:
+        location.append(tr.stats.location)
+    tmp = np.array(location)
+    return np.unique(tmp)
+    
 # download data function
 def DownloadData(client, sta, time0, time1, c):
     signal.signal(signal.SIGALRM, handle_timeout)
@@ -62,6 +69,10 @@ def DownloadData(client, sta, time0, time1, c):
             try:
                 st = client.get_waveforms(network, sta, "*", channel_code, time0, time1)
                 if st.count() > 0:
+                    st = st.merge(fill_value='interpolate')
+                    if st.count() > 3:
+                        loc_ = get_location_info(st)
+                        st = st.select(location=loc_[0])
                     try:
                         inv = read_inventory(f"https://geof.bmkg.go.id/fdsnws/station/1/query?station={sta}&level=response&nodata=404")
                         return st, inv
@@ -70,7 +81,7 @@ def DownloadData(client, sta, time0, time1, c):
             except:
                 continue
     except TimeoutError:
-        print(f"!! {sta} download timeout!", flush=True)
+        print(f"!! {sta} download timeout!")
         return "No Data", None
     # if all except
     return "No Data", None
