@@ -71,8 +71,8 @@ def DownloadData(client, sta, time0, time1, c):
             try:
                 st = client.get_waveforms(network, sta, "*", channel_code, time0, time1)
                 if st.count() > 0:
-                    st = st.merge(fill_value='interpolate')
                     if st.count() > 3:
+                        st = st.merge(fill_value='interpolate')
                         loc_ = get_location_info(st)
                         st = st.select(location=loc_[0])
                     try:
@@ -161,10 +161,11 @@ def process_data(sta):
         try:
             vprint(f"{id_kode} Process basic info")
             rms,ampmax,ampmin,psdata,ngap,nover,num_spikes = Calculation.prosess_matriks(mseed_naming_code,sig,time0,time1) # time0,time1 from global var
-        except:
+        except Exception as e:
             sql=sql_default(id_kode,kode,tgl,ch,'0','0','0','1','0','0') # tgl from global var
             # vprint(sql)
             sql_execommit(pool,id_kode,sistem_sensor,tgl,sql) # tgl from global var
+            vprint(f"caught {type(e)}: {e}")
             print(f"!! {id_kode} miniseed basic process error - Skip Processing", flush=True)
             time.sleep(0.5) #make res to the process
             continue
