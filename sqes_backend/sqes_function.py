@@ -609,7 +609,7 @@ class Analysis():
                 pct_above = float(qc[11])
                 pct_below = float(qc[12])
                 pct_noise = 100.0-pct_above-pct_below
-                pct_noise = Analysis.agregate(pct_noise,100,60)
+                # pct_noise = Analysis.agregate(pct_noise,100,60)
                 # dead channel calculation
                 dcl = float(qc[13])
                 dcl = Analysis.agregate(dcl,2.0,-3.0)
