@@ -339,11 +339,13 @@ if __name__ == "__main__":
         mysql_pool = MySQLPool(**db_credentials) # type: ignore
         mysql_pool.is_db_connected()
         
-        ## query for 'not downloaded' data
         if flush_data:
-            db_query_a = f"SELECT kode_sensor,sistem_sensor FROM tb_slmon"
-        else:
-            db_query_a = f"SELECT kode_sensor,sistem_sensor FROM tb_slmon WHERE kode_sensor NOT IN (SELECT kode FROM (SELECT DISTINCT kode, COUNT(kode) AS ccode FROM tb_qcdetail WHERE tanggal=\'{tgl}\' GROUP BY kode) AS o WHERE o.ccode = 3)"  
+            vprint("flush tb_qcdetail data")
+            flush_query = "DELETE FROM tb_qcdetail WHERE tanggal = \'{tgl}\'"
+            mysql_pool.execute(flush_query, commit=True)
+            vprint("flush success!")
+        ## query for 'not downloaded' data
+        db_query_a = f"SELECT kode_sensor,sistem_sensor FROM tb_slmon WHERE kode_sensor NOT IN (SELECT kode FROM (SELECT DISTINCT kode, COUNT(kode) AS ccode FROM tb_qcdetail WHERE tanggal=\'{tgl}\' GROUP BY kode) AS o WHERE o.ccode = 3)"  
         vprint("query:",db_query_a)
         data = mysql_pool.execute(db_query_a)
         vprint(data)
