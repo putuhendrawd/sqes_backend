@@ -341,7 +341,7 @@ if __name__ == "__main__":
         
         if flush_data:
             vprint("flush tb_qcdetail data")
-            flush_query = "DELETE FROM tb_qcdetail WHERE tanggal = \'{tgl}\'"
+            flush_query = f"DELETE FROM tb_qcdetail WHERE tanggal = \'{tgl}\'"
             mysql_pool.execute(flush_query, commit=True)
             vprint("flush success!")
         ## query for 'not downloaded' data
