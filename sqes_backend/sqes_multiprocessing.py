@@ -343,6 +343,9 @@ if __name__ == "__main__":
             vprint("flush tb_qcdetail data")
             flush_query = f"DELETE FROM tb_qcdetail WHERE tanggal = \'{tgl}\'"
             mysql_pool.execute(flush_query, commit=True)
+            vprint("flush tb_qcres data")
+            flush_qcres_query = f"DELETE FROM tb_qcres WHERE tanggal_res = \'{tgl}\'"
+            mysql_pool.execute(flush_qcres_query, commit=True)
             vprint("flush success!")
         ## query for 'not downloaded' data
         db_query_a = f"SELECT kode_sensor,sistem_sensor FROM tb_slmon WHERE kode_sensor NOT IN (SELECT kode FROM (SELECT DISTINCT kode, COUNT(kode) AS ccode FROM tb_qcdetail WHERE tanggal=\'{tgl}\' GROUP BY kode) AS o WHERE o.ccode = 3)"  
