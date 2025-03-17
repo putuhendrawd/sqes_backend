@@ -463,9 +463,11 @@ class Calculation():
     
     @staticmethod
     def cal_rms(st):
-        npts = st[0].stats.npts
-        return np.sqrt(sum((tr.data.astype(object) ** 2).sum()
-                        for tr in st) / npts)
+        rms_values = []
+        for tr in st:
+            npts = tr.stats.npts
+            rms_values.append(np.sqrt((st[0].data.astype(object)**2).sum()/npts))
+        return sum(rms_values)/len(rms_values)
 
     @staticmethod
     def cal_percent_availability(st):
