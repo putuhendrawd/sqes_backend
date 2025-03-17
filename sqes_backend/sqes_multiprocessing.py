@@ -150,7 +150,7 @@ def process_data(sta):
             sig.plot(outfile=f"{outputsignal}/{kode}_{cha[-1]}_signal.png")
             signal.alarm(0)
         except Exception as e:
-            vprint(f"caught {type(e)}: {e}")
+            vprint(f"saving exception {kode} caught {type(e)}: {e}")
             sql=sql_default(id_kode,kode,tgl,ch,'0','0','0','1','0','0') # tgl from global var
             sql_execommit(pool,id_kode,sistem_sensor,tgl,sql) # tgl from global var
             print(f"!! {id_kode} Skip Processing with default parameter", flush=True)
@@ -165,7 +165,7 @@ def process_data(sta):
             sql=sql_default(id_kode,kode,tgl,ch,'0','0','0','1','0','0') # tgl from global var
             # vprint(sql)
             sql_execommit(pool,id_kode,sistem_sensor,tgl,sql) # tgl from global var
-            vprint(f"caught {type(e)}: {e}")
+            vprint(f"basic info exception {kode} caught {type(e)}: {e}")
             print(f"!! {id_kode} miniseed basic process error - Skip Processing", flush=True)
             time.sleep(0.5) #make res to the process
             continue
@@ -228,7 +228,7 @@ def process_data(sta):
             dcl = Calculation.dead_channel_lin(psd1,period,fs)
             signal.alarm(0)
         except Exception as e:
-            vprint(f"caught {type(e)}: {e}")
+            vprint(f"final parameter exception {kode} caught {type(e)}: {e}")
             print(f"!! {id_kode} processing final parameter error - Skip Processing with default parameter", flush=True)
             sql=sql_default(id_kode,kode,tgl,cha,rms,ratioamp,psdata,ngap,nover,num_spikes)
             sql_execommit(pool,id_kode,sistem_sensor,tgl,sql) # tgl from global var
