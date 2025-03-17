@@ -462,20 +462,45 @@ class Calculation():
         return num_spike
     
     @staticmethod
+    def cal_rms(st):
+        npts = st[0].stats.npts
+        return np.sqrt(sum((tr.data.astype(object) ** 2).sum()
+                        for tr in st) / npts)
+
+    @staticmethod
+    def cal_percent_availability(st):
+        starttime = min(tr.stats.starttime for tr in st)
+        endtime = max(tr.stats.endtime for tr in st)
+        totaltime = endtime-starttime
+        delta_gaps = sum(st[6] for st in st.get_gaps())
+        return round(100 * ((totaltime - delta_gaps) / totaltime),2)
+
+    @staticmethod
+    def cal_gaps_overlaps(st):
+        result = st.get_gaps()
+        gaps = 0
+        overlaps = 0
+        for r in result:
+            if r[6] > 0:
+                gaps += 1
+            else:
+                overlaps += 1
+        return gaps, overlaps
+    
+    @staticmethod
     def prosess_matriks(files,data,time0,time1):
-        tr=data.copy()
-        tr.detrend()
-        mseedqc = MSEEDMetadata([files],starttime=time0,endtime=time1)
-        rms = mseedqc.meta['sample_rms']
-        ampmax = mseedqc.meta['sample_max']
-        ampmin = mseedqc.meta['sample_min']
-        psdata = round(mseedqc.meta['percent_availability'],2)
-        ngap = mseedqc.meta['num_gaps']
-        nover = mseedqc.meta['num_overlaps']
-        nd = mseedqc.meta['num_samples']
+        st=data.copy()
+        st.detrend()
+        # mseedqc = MSEEDMetadata([files],starttime=time0,endtime=time1) ## deprecated
+        rms = Calculation.cal_rms(st)
+        ampmax = max([tr.data.max() for tr in st])
+        ampmin = min([tr.data.min() for tr in st])
+        psdata = Calculation.cal_percent_availability(st)
+        ngap,nover = Calculation.cal_gaps_overlaps(st)
+        # nd = mseedqc.meta['num_samples'] ## not used
         num_spikes = 0.0
-        for t in tr:
-            num_spike = Calculation.cal_spikes(t.data,80,10)
+        for tr in st:
+            num_spike = Calculation.cal_spikes(tr.data,80,10)
             num_spikes += num_spike
         return rms,ampmax,ampmin,psdata,ngap,nover,num_spikes
     

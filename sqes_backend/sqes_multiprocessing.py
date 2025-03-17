@@ -72,7 +72,7 @@ def DownloadData(client, sta, time0, time1, c):
                 st = client.get_waveforms(network, sta, "*", channel_code, time0, time1)
                 if st.count() > 0:
                     if st.count() > 1:
-                        st = st.merge(fill_value=None)
+                        # st = st.merge(fill_value=None)
                         loc_ = get_location_info(st)
                         st = st.select(location=loc_[0])
                     try:
