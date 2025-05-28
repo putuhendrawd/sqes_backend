@@ -14,7 +14,7 @@ from obspy.clients.fdsn import Client
 from obspy.signal import PPSD
 from obspy.imaging.cm import pqlx
 from obspy.signal.quality_control import MSEEDMetadata
-from sqes_function import Calculation, Analysis, MySQLPool, Config
+from sqes_function import Calculation, Analysis, DBPool, Config
 from datetime import datetime
 matplotlib.use('Agg')
 
@@ -138,7 +138,7 @@ def plot_psd(psds,periods,NHNM,NLNM,outfile,sta,label):
 def plot_hvsr(hvsr, hvsr_outfile):
     fig, ax = plt.subplots(figsize=(7,5))
     ax = hvsrpy.plot_single_panel_hvsr_curves(hvsr,ax=ax)
-    ax.get_legend().remove()
+    ax.get_legend().remove() # type: ignore
     # ax.legend(loc="center left", bbox_to_anchor=(1, 0.5))
     fig.savefig(hvsr_outfile, bbox_inches='tight')
     # ax.set_xlabel("Frequency (Hz)")
@@ -241,14 +241,32 @@ geology_src = rasterio.open(os.path.join(tif_folder,geology_tif))
 vs30_src = rasterio.open(os.path.join(tif_folder,vs30_tif))
 pvout_src = rasterio.open(os.path.join(tif_folder,pvout_tif))
 src = [geology_src, vs30_src, pvout_src]
-# load db
-mysql_pool = MySQLPool(**db_credentials)
+
+##### load db and query #####
+## uncomment below if use mysql database
+# db_pool = DBPool(**db_credentials) # type: ignore
+# db_query = f"SELECT kode_sensor,lat_sensor,lon_sensor FROM tb_slmon"
+# tb_slmon = db_pool.execute(db_query)
+# update_query = """
+# UPDATE tb_slmon
+# SET geo = %s, vs30 = %s, photo = %s, hvsr = %s, psd = %s, nilai = %s, keterangan2 = %s, gval = %s, vval = %s, pval = %s, hval = %s, psdval = %s 
+# WHERE kode_sensor = %s;
+# """
+
+## uncomment below if use postgresql database
+db_pool = DBPool(**db_credentials) # type: ignore
+db_query = f"SELECT code,latitude,longitude FROM stations"
+tb_slmon = db_pool.execute(db_query)
+update_query = """
+UPDATE stations_site_quality
+SET geology = %s, vs30 = %s, photovoltaic = %s, hvsr = %s, psd = %s, score = %s, site_quality = %s, geoval = %s, vs30val = %s, photoval = %s, hvsrval = %s, psdval = %s 
+WHERE code = %s;
+"""
+
 # load client
 client = Client(client_credentials['url'],user=client_credentials['user'],password=client_credentials['password'])
 
-# query station list
-db_query_a = f"SELECT kode_sensor,lat_sensor,lon_sensor FROM tb_slmon"
-tb_slmon = mysql_pool.execute(db_query_a)
+
 # # ONLY RUN BELOW IF U WANT TO FILTER STATION ###########################
 # # Filter list
 # skipped = pd.read_csv("../logs/qcstation_log/temp.txt", delim_whitespace=True, names = ['sta','skipped'])
@@ -256,11 +274,9 @@ tb_slmon = mysql_pool.execute(db_query_a)
 # # Filtering the data
 # tb_slmon = [item for item in tb_slmon if item[0] in filter_list]
 # ########################################################################
-update_query = """
-UPDATE tb_slmon
-SET geo = %s, vs30 = %s, photo = %s, hvsr = %s, psd = %s, nilai = %s, keterangan2 = %s, gval = %s, vval = %s, pval = %s, hval = %s, psdval = %s 
-WHERE kode_sensor = %s;
-"""
+
+
+
 
 # run processing
 for data in tb_slmon:
@@ -278,11 +294,11 @@ for data in tb_slmon:
         # processing psd
         psds=[];periods=[];label=[];perc_psd=[]
         for tr in st:
-            fs = tr.stats.sampling_rate
-            label.append(tr.stats.channel)
-            ppsd = PPSD(tr.stats, metadata=inv)
+            fs = tr.stats.sampling_rate # type: ignore
+            label.append(tr.stats.channel) # type: ignore
+            ppsd = PPSD(tr.stats, metadata=inv) # type: ignore
             ppsd.add(tr)
-            period, psd = ppsd.get_percentile()
+            period, psd = ppsd.get_percentile() # type: ignore
             ind = period <= 100
             period = period[ind]
             psd = psd[ind]
@@ -299,9 +315,9 @@ for data in tb_slmon:
             plot_psd(psds,periods,NHNM,NLNM,psd_outfile,station,label)
         # pre-processing hvsr
         endt, startt = time_check(st)
-        st.trim(startt, endt)
-        st.write(mseed_outfile)
-        fs = st[0].stats.sampling_rate
+        st.trim(startt, endt) # type: ignore
+        st.write(mseed_outfile) # type: ignore
+        fs = st[0].stats.sampling_rate # type: ignore
         high_pass_freq_filter = float(fs/2)-0.1
         # processing hvsr
         ## input data
@@ -350,18 +366,18 @@ for data in tb_slmon:
         # setup output
         gval = int(tiff_value['geology'])
         geo = gval_to_geo(tiff_value['geology'])
-        vs30,vval = vs30_to_ket_vval(tiff_value['vs30'])
+        vs30,vval = vs30_to_ket_vval(tiff_value['vs30']) # type: ignore
         photo,pval = pvout_to_ket_pval(tiff_value['photovoltaic'])
-        _, hval = hvsr_to_ket_hval(hvsr_t0)
+        _, hval = hvsr_to_ket_hval(hvsr_t0) # type: ignore
         mean_psd = round(np.mean(perc_psd),2)
-        _, psdval = psd_to_ket_psdval(mean_psd)
+        _, psdval = psd_to_ket_psdval(mean_psd) # type: ignore
         # buat penilaian berdasar bobot
         nilai = hval + (12)*psdval + 4*gval + 6*vval + 2*pval
         keterangan2 = nilai_to_ket(nilai)
         print(station,geo,vs30,photo,hvsr_t0,mean_psd,nilai,keterangan2,gval,vval,pval,hval,psdval,sep=",", flush=True)
         # update DB
-        update_query_values = (geo,vs30,photo,hvsr_t0,mean_psd,nilai,keterangan2,gval,vval,pval,hval,psdval,station)
-        mysql_pool.execute(sql=update_query,args=update_query_values,commit=True)
+        update_query_values = (geo,vs30,photo,hvsr_t0,mean_psd,nilai,keterangan2,gval,vval,pval,hval,psdval,station,)
+        db_pool.execute(sql=update_query,args=update_query_values,commit=True)
     except Exception as e:
         print(e, flush=True)
         print(station," skipped", flush=True)

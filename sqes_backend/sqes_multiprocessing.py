@@ -9,7 +9,7 @@ import json
 from obspy import UTCDateTime, read_inventory
 from obspy.clients.fdsn import Client
 from obspy.imaging.cm import pqlx
-from sqes_function import Calculation, Analysis, MySQLPool, Config
+from sqes_function import Calculation, Analysis, DBPool, Config
 from datetime import datetime
 import multiprocessing
 # from concurrent.futures import ThreadPoolExecutor
@@ -120,7 +120,7 @@ def process_data(sta):
     db_credentials = Config.load_config(section='mysql')
     kode = sta[0]
     sistem_sensor = sta[1]
-    pool = MySQLPool(**db_credentials) # type: ignore
+    pool = DBPool(**db_credentials) # type: ignore
     channel = ['E','N','Z']
     print(f"<{sistem_sensor}> {kode} PROCESS START", flush=True)
     for ch in channel:
@@ -336,7 +336,7 @@ if __name__ == "__main__":
         ## data source
         client = Client(client_credentials['url'],user=client_credentials['user'],password=client_credentials['password'])
         print('client connected:',is_client_connected(client), flush=True)
-        mysql_pool = MySQLPool(**db_credentials) # type: ignore
+        mysql_pool = DBPool(**db_credentials) # type: ignore
         mysql_pool.is_db_connected()
         
         if flush_data:
@@ -365,7 +365,7 @@ if __name__ == "__main__":
         ## create mysql connection based on number of processes
         del(mysql_pool)
         # db_credentials['pool_size'] = 32 # process_req / # of pool
-        mysql_pool = MySQLPool(**db_credentials) # type: ignore
+        mysql_pool = DBPool(**db_credentials) # type: ignore
         
         ########### multiprocessing block ###########
         if data:
