@@ -361,8 +361,9 @@ class Calculation():
     def cal_rms(st):
         rms_values = []
         for tr in st:
+            data = tr.data
             npts = tr.stats.npts
-            rms_values.append(np.sqrt((st[0].data.astype(object)**2).sum()/npts))
+            rms_values.append(np.sqrt(np.sum(data**2) / npts))
         return sum(rms_values)/len(rms_values)
 
     @staticmethod
@@ -391,6 +392,9 @@ class Calculation():
         st.detrend()
         # mseedqc = MSEEDMetadata([files],starttime=time0,endtime=time1) ## deprecated
         rms = Calculation.cal_rms(st)
+        if rms > 100000:
+            rms = 100000
+        
         ampmax = max([tr.data.max() for tr in st])
         ampmin = min([tr.data.min() for tr in st])
         psdata = Calculation.cal_percent_availability(st)
