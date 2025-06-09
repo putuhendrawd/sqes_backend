@@ -437,10 +437,14 @@ class Calculation():
     
 class Analysis():
     @staticmethod
-    def sql_execommit_analisqc(pool,kode,tanggal,percqc,kualitas,tipe,ket):
+    def sql_execommit_analisqc(pool,db,kode,tanggal,percqc,kualitas,tipe,ket):
         if ket != 'Tidak ada data':
             ket=(', '.join(ket))
-        sql =f"INSERT INTO tb_qcres (kode_res, tanggal_res, percqc, kualitas, tipe, keterangan) VALUES (\'{kode}\', \'{tanggal}\', \'{percqc}\', \'{kualitas}\', \'{tipe}\', \'{ket}\')"
+        
+        if db == 'mysql':
+            sql=f"INSERT INTO tb_qcres (kode_res, tanggal_res, percqc, kualitas, tipe, keterangan) VALUES (\'{kode}\', \'{tanggal}\', \'{percqc}\', \'{kualitas}\', \'{tipe}\', \'{ket}\')"
+        elif db == 'postgresql':
+            sql=f"INSERT INTO stations_data_quality (code, date, quality_percentage, result, details) VALUES (\'{kode}\', \'{tanggal}\', \'{percqc}\', \'{kualitas}\', \'{ket}\')"
         # print(sql)
         pool.execute(sql,commit=True)
 
@@ -466,15 +470,21 @@ class Analysis():
         return kualitas 
     
     @staticmethod
-    def QC_Analysis (pool,tanggal,station):
+    def QC_Analysis(pool,db,tanggal,station):
         # flush data in related date
-        sql = f"SELECT * FROM tb_qcres WHERE tanggal_res = \'{tanggal}\' AND kode_res = \'{station}\'"
+        if db == 'mysql':
+            sql = f"SELECT * FROM tb_qcres WHERE tanggal_res = \'{tanggal}\' AND kode_res = \'{station}\'"
+        elif db == 'postgresql':
+            sql = f"SELECT * FROM stations_data_quality WHERE date = \'{tanggal}\' AND code = \'{station}\'"
         # print(sql)
         data=pool.execute(sql)
         print(f"number of qcdata available: {len(data)}", flush=True)
         if data:
             print(f"! Data {station} on {tanggal} available, flushing database!", flush=True)
-            sql = f"DELETE FROM tb_qcres WHERE tanggal_res = \'{tanggal}\' AND kode_res = \'{station}\'"
+            if db == 'mysql':
+                sql = f"DELETE FROM tb_qcres WHERE tanggal_res = \'{tanggal}\' AND kode_res = \'{station}\'"
+            elif db == 'postgresql':
+                sql = f"DELETE FROM stations_data_quality WHERE date = \'{tanggal}\' AND code = \'{station}\'"
             pool.execute(sql,commit=True)
             print(f"! Data {station} on {tanggal} flush successful", flush=True)
         print(f"ready to fill database {station} on {tanggal}", flush=True)
@@ -482,7 +492,10 @@ class Analysis():
     
         # Get station data
         # mycursor.execute("SELECT * FROM tb_slmon")
-        sql=f"SELECT kode_sensor,lokasi_sensor,sistem_sensor FROM tb_slmon WHERE kode_sensor = \'{station}\'"
+        if db == 'mysql':
+            sql=f"SELECT kode_sensor,lokasi_sensor,sistem_sensor FROM tb_slmon WHERE kode_sensor = \'{station}\'"
+        elif db == 'postgresql':
+            sql=f"SELECT code, location, network_group FROM stations WHERE code = \'{station}\'"
         station=pool.execute(sql)
 
         for sta in station:
@@ -490,13 +503,16 @@ class Analysis():
             tipe = sta[2]
             
             # check if there is duplicate data
-            sql_checker = f"SELECT * FROM tb_qcdetail WHERE tanggal = \'{tanggal}\' AND kode = \'{kode}\'"
+            if db == 'mysql':
+                sql_checker = f"SELECT * FROM tb_qcdetail WHERE tanggal = \'{tanggal}\' AND kode = \'{kode}\'"
+            elif db == 'postgresql':
+                sql_checker = f"SELECT * FROM stations_qc_details WHERE date = \'{tanggal}\' AND code = \'{kode}\'"
             dataqc = pool.execute(sql_checker)
             
             # skip no data 
             if not dataqc:
                 # print(f"!! <{tipe}> {kode} no data exist", flush=True)
-                Analysis.sql_execommit_analisqc(pool,kode,tanggal,'0','Mati',tipe,'Tidak ada data')
+                Analysis.sql_execommit_analisqc(pool,db,kode,tanggal,'0','Mati',tipe,'Tidak ada data')
                 continue
             
             percqc=[]
@@ -567,7 +583,7 @@ class Analysis():
             # generate general quality f station
             avg_percqc = np.sum(percqc)/3.0
             kualitas = Analysis.check_qc(avg_percqc)
-            Analysis.sql_execommit_analisqc(pool,kode,tanggal,str(round(avg_percqc,2)),kualitas,tipe,ket)
+            Analysis.sql_execommit_analisqc(pool,db,kode,tanggal,str(round(avg_percqc,2)),kualitas,tipe,ket)
             print(f"<{tipe}> {kode} QC FINISH", flush=True)
             time.sleep(0.5) #make res to the process
             

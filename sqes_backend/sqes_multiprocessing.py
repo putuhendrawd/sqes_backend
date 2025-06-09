@@ -100,7 +100,7 @@ def sql_default(db, id_kode,kode,tgl,cha,rms,ratioamp,psdata,ngap,nover,num_spik
     if db == 'mysql':
         query = f"INSERT INTO tb_qcdetail (id_kode, kode, tanggal, komp, rms, ratioamp, avail, ngap, nover, num_spikes, pct_above, pct_below, dead_channel_lin, dead_channel_gsn, diff20_100, diff5_20, diff5) VALUES (\'{id_kode}\', \'{kode}\', \'{tgl}\', \'{cha}\', \'{rms}\', \'{ratioamp}\', \'{psdata}\', \'{ngap}\', \'{nover}\', \'{num_spikes}\', \'{pct_above}\', \'{pct_below}\', \'{dead_channel_lin}\', \'{dead_channel_gsn}\', \'{diff20_100}\', \'{diff5_20}\', \'{diff5}\')"
     elif db == 'postgresql':
-        query = f"INSERT INTO stations_qc_details (id, code, date, channel, rms, amplitude_ratio, availability, num_gap, num_overlap, num_spikes, perc_above_NHNM, perc_below_NLNM, linear_dead_channel, gsn_dead_channel, lp_percentage, bw_percentage, sp_percentage) VALUES (\'{id_kode}\', \'{kode}\', \'{tgl}\', \'{cha}\', {rms}, {ratioamp}, {psdata}, {ngap}, {nover}, {num_spikes}, {pct_above}, {pct_below}, {dead_channel_lin}, {dead_channel_gsn}, {diff20_100}, {diff5_20}, {diff5})"
+        query = f"INSERT INTO stations_qc_details (id, code, date, channel, rms, amplitude_ratio, availability, num_gap, num_overlap, num_spikes, perc_above_nhnm, perc_below_nlnm, linear_dead_channel, gsn_dead_channel, lp_percentage, bw_percentage, sp_percentage) VALUES (\'{id_kode}\', \'{kode}\', \'{tgl}\', \'{cha}\', {rms}, {ratioamp}, {psdata}, {ngap}, {nover}, {num_spikes}, {pct_above}, {pct_below}, {dead_channel_lin}, {dead_channel_gsn}, {diff20_100}, {diff5_20}, {diff5})"
     return query
 
 # sql commit execute function
@@ -247,7 +247,7 @@ def process_data(sta):
         if db == 'mysql':
             sql = f"INSERT INTO tb_qcdetail (id_kode, kode, tanggal, komp, rms, ratioamp, avail, ngap, nover, num_spikes, pct_above, pct_below, dead_channel_lin, dead_channel_gsn, diff20_100, diff5_20, diff5) VALUES (\'{id_kode}\', \'{kode}\', \'{tgl}\', \'{cha}\', \'{rms}\', \'{ratioamp}\', \'{psdata}\', \'{ngap}\', \'{nover}\', \'{num_spikes}\', \'{pctH}\', \'{pctL}\', \'{str(round(dcl,2))}\', \'{str(round(dcg,2))}\', \'{diff20_100}\', \'{diff5_20}\', \'{diff5}\')"
         elif db == 'postgresql':
-            sql = f"INSERT INTO stations_qc_details (id, code, date, channel, rms, amplitude_ratio, availability, num_gap, num_overlap, num_spikes, perc_above_NHNM, perc_below_NLNM, linear_dead_channel, gsn_dead_channel, lp_percentage, bw_percentage, sp_percentage) VALUES (\'{id_kode}\', \'{kode}\', \'{tgl}\', \'{cha}\', {rms}, {ratioamp}, {psdata}, {ngap}, {nover}, {num_spikes}, {pctH}, {pctL}, {str(round(dcl,2))}, {str(round(dcg,2))}, {diff20_100}, {diff5_20}, {diff5})"
+            sql = f"INSERT INTO stations_qc_details (id, code, date, channel, rms, amplitude_ratio, availability, num_gap, num_overlap, num_spikes, perc_above_nhnm, perc_below_nlnm, linear_dead_channel, gsn_dead_channel, lp_percentage, bw_percentage, sp_percentage) VALUES (\'{id_kode}\', \'{kode}\', \'{tgl}\', \'{cha}\', {rms}, {ratioamp}, {psdata}, {ngap}, {nover}, {num_spikes}, {pctH}, {pctL}, {str(round(dcl,2))}, {str(round(dcg,2))}, {diff20_100}, {diff5_20}, {diff5})"
         # vprint(sql)
         vprint(f"{id_kode} Saving to database")
         sql_execommit(pool,db,id_kode,sistem_sensor,tgl,sql) # tgl from global var
@@ -256,7 +256,7 @@ def process_data(sta):
     # print process finish
     print(f"<{sistem_sensor}> {kode} PROCESS FINISH", flush=True)
     # run qc analysis
-    Analysis.QC_Analysis(pool,tgl,kode) # tgl from global var
+    Analysis.QC_Analysis(pool,db,tgl,kode) # tgl from global var
     time.sleep(.5) #make res to the process
 ### function end ###
     
@@ -321,8 +321,9 @@ if __name__ == "__main__":
     ## load credentials and config
     try:
         basic_config = Config.load_config(section='basic')
+        db = basic_config['use_database']
         client_credentials = Config.load_config(section='client')
-        db_credentials = Config.load_config(section=basic_config['use_database'])
+        db_credentials = Config.load_config(section=basic_config['use_database'])     
         
     except:
         print(f"!! client/db_credentials not found")
@@ -414,7 +415,7 @@ if __name__ == "__main__":
             for sta in data:
                 kode_qc = sta[0]
                 vprint(f"{counter_qc}. {kode_qc}")
-                Analysis.QC_Analysis(db_pool,tgl,kode_qc)
+                Analysis.QC_Analysis(db_pool,db,tgl,kode_qc)
                 counter_qc+=1   
         else:
             print(f"QC Data {tgl} already complete", flush=True)
