@@ -517,43 +517,55 @@ class Analysis():
             
             percqc=[]
             ket=[]
-            for qc in dataqc:	
-                komp = qc[4]
-                # print(kode,komp,"processing")
-                
+            for qc in dataqc:
+                if db == 'mysql':
+                    komp = qc[4]
+                    rms = float(qc[5])
+                    ratioamp = float(qc[6])
+                    avail = float(qc[7])
+                    ngap1 = int(qc[8])
+                    nover = int(qc[9])
+                    num_spikes = int(qc[10])
+                    pct_above = float(qc[11])
+                    pct_below = float(qc[12])
+                    dcl = float(qc[13])
+                    dcg = float(qc[14])
+                elif db == 'postgresql':
+                    komp = qc[3]
+                    rms = float(qc[4])
+                    ratioamp = float(qc[5])
+                    avail = float(qc[6])
+                    ngap1 = int(qc[7])
+                    nover = int(qc[8])
+                    num_spikes = int(qc[9])
+                    pct_above = float(qc[11])
+                    pct_below = float(qc[10])
+                    dcl = float(qc[12])
+                    dcg = float(qc[13])
+
                 # rms calculation
-                rms = float(qc[5])
                 if rms > 1.0:
                     rms = Analysis.agregate(abs(rms),5000,10000)
                 else:
                     rms = 0.0
                 # ratio amp calculation
-                ratioamp = float(qc[6])
                 ratioamp = Analysis.agregate(ratioamp,1.01,2.0)
                 # availability and gap calculation
-                avail = float(qc[7])
                 if avail >= 100.0:
                     ngap1 = 0
                     avail = 100.0
-                else:
-                    ngap1 = int(qc[8])
                 ngap = Analysis.agregate(ngap1,0,4)
                 # overlap calculation
-                nover = int(qc[9])
                 nover = Analysis.agregate(nover,0,4)
                 # spikes calculation
-                num_spikes = int(qc[10])
                 num_spikes = Analysis.agregate(num_spikes,100,500)
                 # pct calculation
-                pct_above = float(qc[11])
-                pct_below = float(qc[12])
                 pct_noise = 100.0-pct_above-pct_below
                 # pct_noise = Analysis.agregate(pct_noise,100,60)
                 # dead channel calculation
-                dcl = float(qc[13])
                 dcl = Analysis.agregate(dcl,2.0,-3.0)
-                dcg = float(qc[14])
                 dcg = Analysis.agregate(dcg,1.0,1.0)
+
                 # generate keterangan
                 if rms < 1.0 and rms > 0.0:
                     ket.append(f"Komponen {komp} rusak")
@@ -579,7 +591,6 @@ class Analysis():
             # generate keterangan if keterangan is empty
             if len(ket) == 0:
                 ket.append('Tidak ada')
-                    
             # generate general quality f station
             avg_percqc = np.sum(percqc)/3.0
             kualitas = Analysis.check_qc(avg_percqc)
