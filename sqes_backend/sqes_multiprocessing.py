@@ -89,7 +89,7 @@ def DownloadData(client, sta, time0, time1, c):
     return "No Data", None
 
 # default sql for bad data
-def sql_default(db, id_kode,kode,tgl,cha,rms,ratioamp,psdata,ngap,nover,num_spikes):
+def sql_default(db,id_kode,kode,tgl,cha,rms,ratioamp,psdata,ngap,nover,num_spikes):
     pct_above = 100
     pct_below = 0
     dead_channel_lin = 0
@@ -106,21 +106,21 @@ def sql_default(db, id_kode,kode,tgl,cha,rms,ratioamp,psdata,ngap,nover,num_spik
 # sql commit execute function
 def sql_execommit(pool,db,id_kode,sistem_sensor,tgl,sql):
     if db == 'mysql':
-        f = f"SELECT id_kode FROM tb_qcdetail WHERE id_kode=\'{id_kode}' AND tanggal=\'{tgl}\';"
+        f = f"SELECT id_kode FROM tb_qcdetail WHERE id_kode= %s AND tanggal= %s;"
     elif db == 'postgresql':
-        f = f"SELECT id FROM stations_qc_details WHERE id=\'{id_kode}' AND date=\'{tgl}\';"
-    data = pool.execute(f)
+        f = f"SELECT id FROM stations_qc_details WHERE id= %s AND date= %s;"
+    data = pool.execute(f, args=(id_kode,tgl), fetch=True)
     # check if there is duplicate data
     if data:
         vprint(f"! <{sistem_sensor}> {id_kode} data exist:", data)
         vprint(f"! deleting previous data")
         if db == 'mysql':
-            del_sql = f"DELETE FROM tb_qcdetail WHERE id_kode=\'{id_kode}\' AND tanggal=\'{tgl}\'"
+            del_sql = f"DELETE FROM tb_qcdetail WHERE id_kode= %s AND tanggal= %s"
         elif db == 'postgresql':
-            del_sql = f"DELETE FROM stations_qc_details WHERE id=\'{id_kode}\' AND date=\'{tgl}\'"
+            del_sql = f"DELETE FROM stations_qc_details WHERE id= %s AND date= %s"
         vprint("!",del_sql)
-        pool.execute(del_sql,commit=True)
-    pool.execute(sql,commit=True)
+        pool.execute(del_sql, args=(id_kode,tgl), commit=True)
+    pool.execute(sql, commit=True)
 
 def process_data(sta):   
     # timeout function
@@ -370,7 +370,7 @@ if __name__ == "__main__":
         if basic_config['use_database'] == 'mysql':
             db_query_a = f"SELECT kode_sensor,sistem_sensor FROM tb_slmon WHERE kode_sensor NOT IN (SELECT kode FROM (SELECT DISTINCT kode, COUNT(kode) AS ccode FROM tb_qcdetail WHERE tanggal=\'{tgl}\' GROUP BY kode) AS o WHERE o.ccode = 3)"  
         elif basic_config['use_database'] == 'postgresql':
-            db_query_a = f"SELECT code,network_group FROM stations WHERE code NOT IN (SELECT code FROM (SELECT DISTINCT code, COUNT(code) AS ccode FROM stations_data_quality WHERE date=\'{tgl}\' GROUP BY code) AS o WHERE o.ccode = 3)"
+            db_query_a = f"SELECT code,network_group FROM stations WHERE code NOT IN (SELECT code FROM (SELECT DISTINCT code, COUNT(code) AS ccode FROM stations_qc_details WHERE date=\'{tgl}\' GROUP BY code) AS o WHERE o.ccode = 3)"
         vprint("query:",db_query_a)
         data = db_pool.execute(db_query_a)
         vprint(data)
