@@ -392,8 +392,8 @@ class Calculation():
         st.detrend()
         # mseedqc = MSEEDMetadata([files],starttime=time0,endtime=time1) ## deprecated
         rms = Calculation.cal_rms(st)
-        if rms > 100000:
-            rms = 100000
+        if rms > 99999:
+            rms = 99999
         
         ampmax = max([tr.data.max() for tr in st])
         ampmin = min([tr.data.min() for tr in st])
