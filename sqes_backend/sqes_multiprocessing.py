@@ -401,9 +401,9 @@ if __name__ == "__main__":
         
         # update QC Analysis for data that are not auto downloaded by multiprocessing blocks
         print(f"Updating QC Data : {tgl}", flush=True)
-        if db_credentials['use_database'] == 'mysql':
+        if basic_config['use_database'] == 'mysql':
             db_query_b = f"SELECT DISTINCT kode FROM tb_qcdetail WHERE tanggal=\'{tgl}\' AND kode NOT IN (SELECT DISTINCT kode_res FROM tb_qcres WHERE tanggal_res=\'{tgl}\')"
-        elif db_credentials['use_database'] == 'postgresql':
+        elif basic_config['use_database'] == 'postgresql':
             db_query_b = f"SELECT DISTINCT code FROM stations_data_quality WHERE date='{tgl}' AND code NOT IN (SELECT DISTINCT code FROM stations_qc_details WHERE date='{tgl}')"
         vprint("query:",db_query_b)
         data = db_pool.execute(db_query_b)
