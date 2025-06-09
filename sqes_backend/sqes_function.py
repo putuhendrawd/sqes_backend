@@ -214,7 +214,7 @@ class DBPool(object):
             cursor = conn.cursor()
             cursor.execute("SELECT 1")
             cursor.fetchall()
-            return True
+            return print(f"DB Pool Connection Check: OK, client: {self._db_type}", flush=True)
         except (mysql.connector.Error, psycopg2.Error, ConnectionError) as e:
             print(f"!! DBPool Connection Check Error ({self._db_type}): {e}", flush=True)
             return False
