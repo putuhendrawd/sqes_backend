@@ -379,9 +379,9 @@ class Calculation():
             # gap[6] is the delta (duration of the gap/overlap)
             if gap[6] > 0:
                 delta_gaps += gap[6]
-        if totaltime.total_seconds() == 0:
+        if totaltime == 0:
             return 0.0
-        percentage = 100 * ((totaltime.total_seconds() - delta_gaps) / totaltime.total_seconds())
+        percentage = 100 * ((totaltime - delta_gaps) / totaltime)
         return round(percentage,2)
 
     @staticmethod
