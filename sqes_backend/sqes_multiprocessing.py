@@ -352,23 +352,23 @@ if __name__ == "__main__":
         
         if flush_data:
             vprint("flush qc_details data")
-            if db_credentials['use_database'] == 'mysql':
+            if basic_config['use_database'] == 'mysql':
                 flush_query = f"DELETE FROM tb_qcdetail WHERE tanggal = \'{tgl}\'"
-            elif db_credentials['use_database'] == 'postgresql':
+            elif basic_config['use_database'] == 'postgresql':
                 flush_query = f"DELETE FROM stations_qc_details WHERE date = \'{tgl}\'"
             db_pool.execute(flush_query, commit=True)
             vprint("flush qc_details data")
-            if db_credentials['use_database'] == 'mysql':
+            if basic_config['use_database'] == 'mysql':
                 flush_qcres_query = f"DELETE FROM tb_qcres WHERE tanggal_res = \'{tgl}\'"
-            elif db_credentials['use_database'] == 'postgresql':
+            elif basic_config['use_database'] == 'postgresql':
                 flush_qcres_query = f"DELETE FROM stations_data_quality WHERE date = \'{tgl}\'"
             db_pool.execute(flush_qcres_query, commit=True)
             vprint("flush success!")
 
         ## query for 'not downloaded' data
-        if db_credentials['use_database'] == 'mysql':
+        if basic_config['use_database'] == 'mysql':
             db_query_a = f"SELECT kode_sensor,sistem_sensor FROM tb_slmon WHERE kode_sensor NOT IN (SELECT kode FROM (SELECT DISTINCT kode, COUNT(kode) AS ccode FROM tb_qcdetail WHERE tanggal=\'{tgl}\' GROUP BY kode) AS o WHERE o.ccode = 3)"  
-        elif db_credentials['use_database'] == 'postgresql':
+        elif basic_config['use_database'] == 'postgresql':
             db_query_a = f"SELECT code,network_group FROM stations WHERE code NOT IN (SELECT code FROM (SELECT DISTINCT code, COUNT(code) AS ccode FROM stations_data_quality WHERE date=\'{tgl}\' GROUP BY code) AS o WHERE o.ccode = 3)"
         vprint("query:",db_query_a)
         data = db_pool.execute(db_query_a)
