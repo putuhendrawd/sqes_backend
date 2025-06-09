@@ -45,7 +45,7 @@ class DBPool(object):
     """
     def __init__(self, db_type="mysql", host="127.0.0.1", port=None, user="root",
                  password="root", database="test", pool_name="db_pool",
-                 pool_size=10, max_reconnect_attempts=3):
+                 pool_size=3, max_reconnect_attempts=3):
         self._db_type = db_type.lower()
         self._host = host
         self._user = user
