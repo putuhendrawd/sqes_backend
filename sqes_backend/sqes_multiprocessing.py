@@ -225,9 +225,9 @@ def process_data(sta):
             dcg = Calculation.dead_channel_gsn(psd1,np.array(NLNM),period)
             pctH, pctL=Calculation.pct_model(psd1,NHNM,NLNM)
             pctH = str(pctH); pctL = str(pctL)
-            diff20_100 = Calculation.pct_model_period(psd1,np.array(NHNM),period,20,100)
-            diff5_20 = Calculation.pct_model_period(psd1,np.array(NHNM),period,5,20)
-            diff5 = Calculation.pct_model_period(psd1,np.array(NHNM),period,0.1,5)
+            diff20_100 = Calculation.pct_model_period(psd1,np.array(NLNM),np.array(NHNM),period,20,100)
+            diff5_20 = Calculation.pct_model_period(psd1,np.array(NLNM),np.array(NHNM),period,5,20)
+            diff5 = Calculation.pct_model_period(psd1,np.array(NLNM),np.array(NHNM),period,0.1,5)
             diff20_100 = str(diff20_100); diff5_20 = str(diff5_20); diff5 = str(diff5);
             period, psd1 = ppsds.get_mean() # type: ignore
             ind = period <= 100

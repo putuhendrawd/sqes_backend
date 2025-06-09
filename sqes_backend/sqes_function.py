@@ -314,12 +314,14 @@ class Calculation():
         return percH, percL
     
     @staticmethod
-    def pct_model_period(psd,AHNM,t,t0,t1):
+    def pct_model_period(psd,LNM,HNM,t,t0,t1):
         percH=0
         psd = psd[(t>t0) & (t<t1)]
-        AHNM = AHNM[(t>t0) & (t<t1)]
+        LNM = LNM[(t>t0) & (t<t1)]
+        HNM = HNM[(t>t0) & (t<t1)]
+
         for i in range(len(psd)):
-            if psd[i] > AHNM[i]:
+            if (psd[i] <= HNM[i]) and (psd[i] >= LNM[i]):
                 percH += 1
         percH = round(float(percH*100/len(psd)),2)
         return percH
