@@ -1,3 +1,4 @@
+from ast import arg
 from obspy.signal import PPSD
 import os, sys, math, mysql.connector, time
 import mysql.connector.pooling
@@ -294,8 +295,8 @@ class Calculation():
     @staticmethod
     def dead_channel_gsn(psd,model,t,t0=4.0,t1=8.0):
         #f dalam periode
-        psd = psd[(t>t0) & (t<t1)];
-        model = model[(t>t0) & (t<t1)];
+        psd = psd[(t>t0) & (t<t1)]
+        model = model[(t>t0) & (t<t1)]
         dcg = np.mean(model-psd)
         return dcg
 
@@ -315,8 +316,8 @@ class Calculation():
     @staticmethod
     def pct_model_period(psd,AHNM,t,t0,t1):
         percH=0
-        psd = psd[(t>t0) & (t<t1)];
-        AHNM = AHNM[(t>t0) & (t<t1)];
+        psd = psd[(t>t0) & (t<t1)]
+        AHNM = AHNM[(t>t0) & (t<t1)]
         for i in range(len(psd)):
             if psd[i] > AHNM[i]:
                 percH += 1
@@ -326,12 +327,12 @@ class Calculation():
     @staticmethod
     def dead_channel_lin(psd,t,fs):
         #f dalam periode
-        t0=0.1;t1=100.0;
-        psd = psd[(t>t0) & (t<t1)];
-        tn = t[(t>t0) & (t<t1)];
+        t0=0.1;t1=100.0
+        psd = psd[(t>t0) & (t<t1)]
+        tn = t[(t>t0) & (t<t1)]
         tn = np.log10(tn)
-        b,m = polyfit(tn,psd,1)
-        psdfit = m + b * tn
+        slope,intercept = polyfit(tn,psd,1)
+        psdfit = intercept + slope * tn
         dcl = np.sqrt(np.mean(abs(psdfit - psd)))
         return dcl
 
@@ -368,11 +369,20 @@ class Calculation():
 
     @staticmethod
     def cal_percent_availability(st):
+        if not st:
+            return 0.0
         starttime = min(tr.stats.starttime for tr in st)
         endtime = max(tr.stats.endtime for tr in st)
         totaltime = endtime-starttime
-        delta_gaps = sum(st[6] for st in st.get_gaps())
-        return round(100 * ((totaltime - delta_gaps) / totaltime),2)
+        delta_gaps = 0
+        for gap in st.get_gaps():
+            # gap[6] is the delta (duration of the gap/overlap)
+            if gap[6] > 0:
+                delta_gaps += gap[6]
+        if totaltime.total_seconds() == 0:
+            return 0.0
+        percentage = 100 * ((totaltime.total_seconds() - delta_gaps) / totaltime.total_seconds())
+        return round(percentage,2)
 
     @staticmethod
     def cal_gaps_overlaps(st):
@@ -417,17 +427,22 @@ class Calculation():
             print('No data in mseed file')
             return None
         data.merge()
-        ppsds = {}
+
         if data[0].stats.npts<=3600*data[0].stats.sampling_rate:
-            return ppsds
+            return {}
+        ppsds_object = None
+        id_ = '' 
         for tr in data:
             id_ = tr.id
-            ppsds = PPSD(tr.stats, inventory)
-            ppsds.add(tr)
-        if output:
+            ppsds_object = PPSD(tr.stats, inventory)
+            ppsds_object.add(tr)
+
+        if output and ppsds_object:
             fname_out = output + NPZFNAME.format(id_)
-            ppsds.save_npz(fname_out) # type: ignore
-        return ppsds
+            ppsds_object.save_npz(fname_out)
+        elif output and not ppsds_object:
+            print("Warning: No PPSD object generated to save.")
+        return ppsds_object
     
     @staticmethod
     # calculation and process
@@ -442,15 +457,22 @@ class Calculation():
 class Analysis():
     @staticmethod
     def sql_execommit_analisqc(pool,db,kode,tanggal,percqc,kualitas,tipe,ket):
-        if ket != 'Tidak ada data':
-            ket=(', '.join(ket))
-        
+        if isinstance(ket, list):
+            ket_str = ', '.join(ket)
+        else:
+            ket_str = str(ket)
+
         if db == 'mysql':
-            sql=f"INSERT INTO tb_qcres (kode_res, tanggal_res, percqc, kualitas, tipe, keterangan) VALUES (\'{kode}\', \'{tanggal}\', \'{percqc}\', \'{kualitas}\', \'{tipe}\', \'{ket}\')"
+            # Use placeholders (%s) and pass values as a tuple for parameterized query
+            sql = "INSERT INTO tb_qcres (kode_res, tanggal_res, percqc, kualitas, tipe, keterangan) VALUES (%s, %s, %s, %s, %s, %s)"
+            values = (kode, tanggal, percqc, kualitas, tipe, ket_str)
         elif db == 'postgresql':
-            sql=f"INSERT INTO stations_data_quality (code, date, quality_percentage, result, details) VALUES (\'{kode}\', \'{tanggal}\', \'{percqc}\', \'{kualitas}\', \'{ket}\')"
-        # print(sql)
-        pool.execute(sql,commit=True)
+            # Use placeholders (%s) for PostgreSQL (or %s for psycopg2)
+            sql = "INSERT INTO stations_data_quality (code, date, quality_percentage, result, details) VALUES (%s, %s, %s, %s, %s)"
+            values = (kode, tanggal, percqc, kualitas, ket_str)
+        else:
+            raise ValueError("Unsupported database type")
+        pool.execute(sql,args=values,commit=True)
 
     @staticmethod
     def agregate(par,lim,m):
@@ -477,30 +499,30 @@ class Analysis():
     def QC_Analysis(pool,db,tanggal,station):
         # flush data in related date
         if db == 'mysql':
-            sql = f"SELECT * FROM tb_qcres WHERE tanggal_res = \'{tanggal}\' AND kode_res = \'{station}\'"
+            sql = f"SELECT * FROM tb_qcres WHERE tanggal_res = %s AND kode_res = %s"
         elif db == 'postgresql':
-            sql = f"SELECT * FROM stations_data_quality WHERE date = \'{tanggal}\' AND code = \'{station}\'"
+            sql = f"SELECT * FROM stations_data_quality WHERE date = %s AND code = %s"
         # print(sql)
-        data=pool.execute(sql)
+        data=pool.execute(sql,args=(tanggal,station))
         print(f"number of qcdata available: {len(data)}", flush=True)
+
         if data:
             print(f"! Data {station} on {tanggal} available, flushing database!", flush=True)
             if db == 'mysql':
-                sql = f"DELETE FROM tb_qcres WHERE tanggal_res = \'{tanggal}\' AND kode_res = \'{station}\'"
+                sql = f"DELETE FROM tb_qcres WHERE tanggal_res = %s AND kode_res = %s"
             elif db == 'postgresql':
-                sql = f"DELETE FROM stations_data_quality WHERE date = \'{tanggal}\' AND code = \'{station}\'"
-            pool.execute(sql,commit=True)
+                sql = f"DELETE FROM stations_data_quality WHERE date = %s AND code = %s"
+            pool.execute(sql, args=(tanggal, station), commit=True)
             print(f"! Data {station} on {tanggal} flush successful", flush=True)
         print(f"ready to fill database {station} on {tanggal}", flush=True)
     
     
         # Get station data
-        # mycursor.execute("SELECT * FROM tb_slmon")
         if db == 'mysql':
-            sql=f"SELECT kode_sensor,lokasi_sensor,sistem_sensor FROM tb_slmon WHERE kode_sensor = \'{station}\'"
+            sql=f"SELECT kode_sensor,lokasi_sensor,sistem_sensor FROM tb_slmon WHERE kode_sensor = %s"
         elif db == 'postgresql':
-            sql=f"SELECT code, location, network_group FROM stations WHERE code = \'{station}\'"
-        station=pool.execute(sql)
+            sql=f"SELECT code, location, network_group FROM stations WHERE code = %s"
+        station=pool.execute(sql, args=(station,))
 
         for sta in station:
             kode = sta[0]
@@ -508,10 +530,10 @@ class Analysis():
             
             # check if there is duplicate data
             if db == 'mysql':
-                sql_checker = f"SELECT * FROM tb_qcdetail WHERE tanggal = \'{tanggal}\' AND kode = \'{kode}\'"
+                sql_checker = f"SELECT * FROM tb_qcdetail WHERE tanggal = %s AND kode = %s"
             elif db == 'postgresql':
-                sql_checker = f"SELECT * FROM stations_qc_details WHERE date = \'{tanggal}\' AND code = \'{kode}\'"
-            dataqc = pool.execute(sql_checker)
+                sql_checker = f"SELECT * FROM stations_qc_details WHERE date = %s AND code = %s"
+            dataqc = pool.execute(sql_checker, args=(tanggal, kode))
             
             # skip no data 
             if not dataqc:
@@ -542,8 +564,8 @@ class Analysis():
                     ngap1 = int(qc[7])
                     nover = int(qc[8])
                     num_spikes = int(qc[9])
-                    pct_above = float(qc[11])
                     pct_below = float(qc[10])
+                    pct_above = float(qc[11])
                     dcl = float(qc[12])
                     dcg = float(qc[13])
 
@@ -585,7 +607,7 @@ class Analysis():
                 # generate weighted quality (botqc) per component
                 if avail <= 0.0:
                     botqc = 0.0
-                    ket.append('Komponen '+komp+' Mati')
+                    ket.append(f'Komponen {komp} Mati')
                 else:
                 # botqc calculation,
                     #botqc = 0.2*avail+0.1*rms+0.1*ratioamp+0.05*ngap+0.05*nover+0.25*pct_below+0.25*pct_above
@@ -596,7 +618,7 @@ class Analysis():
             if len(ket) == 0:
                 ket.append('')
             # generate general quality f station
-            avg_percqc = np.sum(percqc)/3.0
+            avg_percqc = np.sum(percqc)/len(percqc)
             kualitas = Analysis.check_qc(avg_percqc)
             Analysis.sql_execommit_analisqc(pool,db,kode,tanggal,str(round(avg_percqc,2)),kualitas,tipe,ket)
             print(f"<{tipe}> {kode} QC FINISH", flush=True)
