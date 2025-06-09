@@ -109,7 +109,7 @@ def sql_execommit(pool,db,id_kode,sistem_sensor,tgl,sql):
         f = f"SELECT id_kode FROM tb_qcdetail WHERE id_kode= %s AND tanggal= %s;"
     elif db == 'postgresql':
         f = f"SELECT id FROM stations_qc_details WHERE id= %s AND date= %s;"
-    data = pool.execute(f, args=(id_kode,tgl), fetch=True)
+    data = pool.execute(f, args=(id_kode,tgl))
     # check if there is duplicate data
     if data:
         vprint(f"! <{sistem_sensor}> {id_kode} data exist:", data)
