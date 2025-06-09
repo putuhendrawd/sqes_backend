@@ -89,7 +89,7 @@ def DownloadData(client, sta, time0, time1, c):
     return "No Data", None
 
 # default sql for bad data
-def sql_default(id_kode,kode,tgl,cha,rms,ratioamp,psdata,ngap,nover,num_spikes):
+def sql_default(db, id_kode,kode,tgl,cha,rms,ratioamp,psdata,ngap,nover,num_spikes):
     pct_above = 100
     pct_below = 0
     dead_channel_lin = 0
@@ -97,18 +97,27 @@ def sql_default(id_kode,kode,tgl,cha,rms,ratioamp,psdata,ngap,nover,num_spikes):
     diff20_100 = 0
     diff5_20 = 0
     diff5 = 0
-    prompt = f"INSERT INTO tb_qcdetail (id_kode, kode, tanggal, komp, rms, ratioamp, avail, ngap, nover, num_spikes, pct_above, pct_below, dead_channel_lin, dead_channel_gsn, diff20_100, diff5_20, diff5) VALUES (\'{id_kode}\', \'{kode}\', \'{tgl}\', \'{cha}\', \'{rms}\', \'{ratioamp}\', \'{psdata}\', \'{ngap}\', \'{nover}\', \'{num_spikes}\', \'{pct_above}\', \'{pct_below}\', \'{dead_channel_lin}\', \'{dead_channel_gsn}\', \'{diff20_100}\', \'{diff5_20}\', \'{diff5}\')"
-    return prompt
+    if db == 'mysql':
+        query = f"INSERT INTO tb_qcdetail (id_kode, kode, tanggal, komp, rms, ratioamp, avail, ngap, nover, num_spikes, pct_above, pct_below, dead_channel_lin, dead_channel_gsn, diff20_100, diff5_20, diff5) VALUES (\'{id_kode}\', \'{kode}\', \'{tgl}\', \'{cha}\', \'{rms}\', \'{ratioamp}\', \'{psdata}\', \'{ngap}\', \'{nover}\', \'{num_spikes}\', \'{pct_above}\', \'{pct_below}\', \'{dead_channel_lin}\', \'{dead_channel_gsn}\', \'{diff20_100}\', \'{diff5_20}\', \'{diff5}\')"
+    elif db == 'postgresql':
+        query = f"INSERT INTO stations_qc_details (id, code, date, channel, rms, amplitude_ratio, availability, num_gap, num_overlap, num_spikes, perc_above_NHNM, perc_below_NLNM, linear_dead_channel, gsn_dead_channel, lp_percentage, bw_percentage, sp_percentage) VALUES (\'{id_kode}\', \'{kode}\', \'{tgl}\', \'{cha}\', {rms}, {ratioamp}, {psdata}, {ngap}, {nover}, {num_spikes}, {pct_above}, {pct_below}, {dead_channel_lin}, {dead_channel_gsn}, {diff20_100}, {diff5_20}, {diff5})"
+    return query
 
 # sql commit execute function
-def sql_execommit(pool,id_kode,sistem_sensor,tgl,sql):
-    f = f"SELECT id,id_kode FROM tb_qcdetail WHERE id_kode=\'{id_kode}' AND tanggal=\'{tgl}\';"
+def sql_execommit(pool,db,id_kode,sistem_sensor,tgl,sql):
+    if db == 'mysql':
+        f = f"SELECT id_kode FROM tb_qcdetail WHERE id_kode=\'{id_kode}' AND tanggal=\'{tgl}\';"
+    elif db == 'postgresql':
+        f = f"SELECT id FROM stations_qc_details WHERE id=\'{id_kode}' AND date=\'{tgl}\';"
     data = pool.execute(f)
     # check if there is duplicate data
     if data:
         vprint(f"! <{sistem_sensor}> {id_kode} data exist:", data)
         vprint(f"! deleting previous data")
-        del_sql = f"DELETE FROM tb_qcdetail WHERE id_kode=\'{id_kode}\' AND tanggal=\'{tgl}\'"
+        if db == 'mysql':
+            del_sql = f"DELETE FROM tb_qcdetail WHERE id_kode=\'{id_kode}\' AND tanggal=\'{tgl}\'"
+        elif db == 'postgresql':
+            del_sql = f"DELETE FROM stations_qc_details WHERE id=\'{id_kode}\' AND date=\'{tgl}\'"
         vprint("!",del_sql)
         pool.execute(del_sql,commit=True)
     pool.execute(sql,commit=True)
@@ -116,8 +125,7 @@ def sql_execommit(pool,id_kode,sistem_sensor,tgl,sql):
 def process_data(sta):   
     # timeout function
     signal.signal(signal.SIGALRM, handle_timeout)
-    # open credentials
-    db_credentials = Config.load_config(section='mysql')
+    db = basic_config['use_database']
     kode = sta[0]
     sistem_sensor = sta[1]
     pool = DBPool(**db_credentials) # type: ignore
@@ -131,9 +139,9 @@ def process_data(sta):
         sig, inv = DownloadData(client,kode,time0,time1,ch) # time0,time1 from global var
         # vprint(f"{id_kode} No Data" if sig=="No Data" else f"{id_kode} Downloaded")
         if sig=="No Data":
-            sql=sql_default(id_kode,kode,tgl,ch,'0','0','0','1','0','0') # tgl from global var
+            sql=sql_default(db, id_kode,kode,tgl,ch,'0','0','0','1','0','0') # tgl from global var
             # vprint(sql)
-            sql_execommit(pool,id_kode,sistem_sensor,tgl,sql) # tgl from global var
+            sql_execommit(pool,db,id_kode,sistem_sensor,tgl,sql) # tgl from global var
             print(f"!! {id_kode} No Data - Continuing", flush=True)
             time.sleep(0.5) #make res to the process
             continue
@@ -151,8 +159,8 @@ def process_data(sta):
             signal.alarm(0)
         except Exception as e:
             vprint(f"saving exception {kode} caught {type(e)}: {e}")
-            sql=sql_default(id_kode,kode,tgl,ch,'0','0','0','1','0','0') # tgl from global var
-            sql_execommit(pool,id_kode,sistem_sensor,tgl,sql) # tgl from global var
+            sql=sql_default(db,id_kode,kode,tgl,ch,'0','0','0','1','0','0') # tgl from global var
+            sql_execommit(pool,db,id_kode,sistem_sensor,tgl,sql) # tgl from global var
             print(f"!! {id_kode} Skip Processing with default parameter", flush=True)
             time.sleep(0.5) #make res to the process
             continue
@@ -162,9 +170,9 @@ def process_data(sta):
             vprint(f"{id_kode} Process basic info")
             rms,ampmax,ampmin,psdata,ngap,nover,num_spikes = Calculation.prosess_matriks(mseed_naming_code,sig,time0,time1) # time0,time1 from global var
         except Exception as e:
-            sql=sql_default(id_kode,kode,tgl,ch,'0','0','0','1','0','0') # tgl from global var
+            sql=sql_default(db,id_kode,kode,tgl,ch,'0','0','0','1','0','0') # tgl from global var
             # vprint(sql)
-            sql_execommit(pool,id_kode,sistem_sensor,tgl,sql) # tgl from global var
+            sql_execommit(pool,db,id_kode,sistem_sensor,tgl,sql) # tgl from global var
             vprint(f"basic info exception {kode} caught {type(e)}: {e}")
             print(f"!! {id_kode} miniseed basic process error - Skip Processing", flush=True)
             time.sleep(0.5) #make res to the process
@@ -177,9 +185,9 @@ def process_data(sta):
         
         # skip high gap data
         if int(ngap)>2000:
-            sql=sql_default(id_kode,kode,tgl,cha,rms,ratioamp,psdata,ngap,nover,num_spikes) # tgl from global var
+            sql=sql_default(db,id_kode,kode,tgl,cha,rms,ratioamp,psdata,ngap,nover,num_spikes) # tgl from global var
             # vprint("ngap except",sql)
-            sql_execommit(pool,id_kode,sistem_sensor,tgl,sql)
+            sql_execommit(pool,db,id_kode,sistem_sensor,tgl,sql)
             print(f"!! {id_kode} high gap - Continuing with default parameter", flush=True)
             time.sleep(.5) #make res to the process
             continue
@@ -194,9 +202,9 @@ def process_data(sta):
             
         # skip ppsds processing error
         if not ppsds or not ppsds._times_processed: # type: ignore
-            sql=sql_default(id_kode,kode,tgl,cha,rms,ratioamp,psdata,ngap,nover,num_spikes) # tgl from global var
+            sql=sql_default(db,id_kode,kode,tgl,cha,rms,ratioamp,psdata,ngap,nover,num_spikes) # tgl from global var
             # vprint(sql)
-            sql_execommit(pool,id_kode,sistem_sensor,tgl,sql) # tgl from global var
+            sql_execommit(pool,db,id_kode,sistem_sensor,tgl,sql) # tgl from global var
             print(f"!! {id_kode} prosess_psd failed - Continuing without ppsd processing", flush=True)
             time.sleep(.5) #make res to the process
             continue
@@ -230,16 +238,19 @@ def process_data(sta):
         except Exception as e:
             vprint(f"final parameter exception {kode} caught {type(e)}: {e}")
             print(f"!! {id_kode} processing final parameter error - Skip Processing with default parameter", flush=True)
-            sql=sql_default(id_kode,kode,tgl,cha,rms,ratioamp,psdata,ngap,nover,num_spikes)
-            sql_execommit(pool,id_kode,sistem_sensor,tgl,sql) # tgl from global var
+            sql=sql_default(db,id_kode,kode,tgl,cha,rms,ratioamp,psdata,ngap,nover,num_spikes)
+            sql_execommit(pool,db,id_kode,sistem_sensor,tgl,sql) # tgl from global var
             time.sleep(0.5) #make res to the process
             continue
         
         # commit result
-        sql = f"INSERT INTO tb_qcdetail (id_kode, kode, tanggal, komp, rms, ratioamp, avail, ngap, nover, num_spikes, pct_above, pct_below, dead_channel_lin, dead_channel_gsn, diff20_100, diff5_20, diff5) VALUES (\'{id_kode}\', \'{kode}\', \'{tgl}\', \'{cha}\', \'{rms}\', \'{ratioamp}\', \'{psdata}\', \'{ngap}\', \'{nover}\', \'{num_spikes}\', \'{pctH}\', \'{pctL}\', \'{str(round(dcl,2))}\', \'{str(round(dcg,2))}\', \'{diff20_100}\', \'{diff5_20}\', \'{diff5}\')"
+        if db == 'mysql':
+            sql = f"INSERT INTO tb_qcdetail (id_kode, kode, tanggal, komp, rms, ratioamp, avail, ngap, nover, num_spikes, pct_above, pct_below, dead_channel_lin, dead_channel_gsn, diff20_100, diff5_20, diff5) VALUES (\'{id_kode}\', \'{kode}\', \'{tgl}\', \'{cha}\', \'{rms}\', \'{ratioamp}\', \'{psdata}\', \'{ngap}\', \'{nover}\', \'{num_spikes}\', \'{pctH}\', \'{pctL}\', \'{str(round(dcl,2))}\', \'{str(round(dcg,2))}\', \'{diff20_100}\', \'{diff5_20}\', \'{diff5}\')"
+        elif db == 'postgresql':
+            sql = f"INSERT INTO stations_qc_details (id, code, date, channel, rms, amplitude_ratio, availability, num_gap, num_overlap, num_spikes, perc_above_NHNM, perc_below_NLNM, linear_dead_channel, gsn_dead_channel, lp_percentage, bw_percentage, sp_percentage) VALUES (\'{id_kode}\', \'{kode}\', \'{tgl}\', \'{cha}\', {rms}, {ratioamp}, {psdata}, {ngap}, {nover}, {num_spikes}, {pctH}, {pctL}, {str(round(dcl,2))}, {str(round(dcg,2))}, {diff20_100}, {diff5_20}, {diff5})"
         # vprint(sql)
         vprint(f"{id_kode} Saving to database")
-        sql_execommit(pool,id_kode,sistem_sensor,tgl,sql) # tgl from global var
+        sql_execommit(pool,db,id_kode,sistem_sensor,tgl,sql) # tgl from global var
         vprint(f"{id_kode} Process finish")
         time.sleep(.5) #make res to the process
     # print process finish
@@ -336,21 +347,31 @@ if __name__ == "__main__":
         ## data source
         client = Client(client_credentials['url'],user=client_credentials['user'],password=client_credentials['password'])
         print('client connected:',is_client_connected(client), flush=True)
-        mysql_pool = DBPool(**db_credentials) # type: ignore
-        mysql_pool.is_db_connected()
+        db_pool = DBPool(**db_credentials) # type: ignore
+        db_pool.is_db_connected()
         
         if flush_data:
-            vprint("flush tb_qcdetail data")
-            flush_query = f"DELETE FROM tb_qcdetail WHERE tanggal = \'{tgl}\'"
-            mysql_pool.execute(flush_query, commit=True)
-            vprint("flush tb_qcres data")
-            flush_qcres_query = f"DELETE FROM tb_qcres WHERE tanggal_res = \'{tgl}\'"
-            mysql_pool.execute(flush_qcres_query, commit=True)
+            vprint("flush qc_details data")
+            if db_credentials['use_database'] == 'mysql':
+                flush_query = f"DELETE FROM tb_qcdetail WHERE tanggal = \'{tgl}\'"
+            elif db_credentials['use_database'] == 'postgresql':
+                flush_query = f"DELETE FROM stations_qc_details WHERE date = \'{tgl}\'"
+            db_pool.execute(flush_query, commit=True)
+            vprint("flush qc_details data")
+            if db_credentials['use_database'] == 'mysql':
+                flush_qcres_query = f"DELETE FROM tb_qcres WHERE tanggal_res = \'{tgl}\'"
+            elif db_credentials['use_database'] == 'postgresql':
+                flush_qcres_query = f"DELETE FROM stations_data_quality WHERE date = \'{tgl}\'"
+            db_pool.execute(flush_qcres_query, commit=True)
             vprint("flush success!")
+
         ## query for 'not downloaded' data
-        db_query_a = f"SELECT kode_sensor,sistem_sensor FROM tb_slmon WHERE kode_sensor NOT IN (SELECT kode FROM (SELECT DISTINCT kode, COUNT(kode) AS ccode FROM tb_qcdetail WHERE tanggal=\'{tgl}\' GROUP BY kode) AS o WHERE o.ccode = 3)"  
+        if db_credentials['use_database'] == 'mysql':
+            db_query_a = f"SELECT kode_sensor,sistem_sensor FROM tb_slmon WHERE kode_sensor NOT IN (SELECT kode FROM (SELECT DISTINCT kode, COUNT(kode) AS ccode FROM tb_qcdetail WHERE tanggal=\'{tgl}\' GROUP BY kode) AS o WHERE o.ccode = 3)"  
+        elif db_credentials['use_database'] == 'postgresql':
+            db_query_a = f"SELECT code,network_group FROM stations WHERE code NOT IN (SELECT code FROM (SELECT DISTINCT code, COUNT(code) AS ccode FROM stations_data_quality WHERE date=\'{tgl}\' GROUP BY code) AS o WHERE o.ccode = 3)"
         vprint("query:",db_query_a)
-        data = mysql_pool.execute(db_query_a)
+        data = db_pool.execute(db_query_a)
         vprint(data)
         print(f"number of stations to be processed: {len(data)}", flush=True) # type: ignore
 
@@ -363,9 +384,9 @@ if __name__ == "__main__":
         print(f"multiprocessing processes created: {processes_req}", flush=True)
         
         ## create mysql connection based on number of processes
-        del(mysql_pool)
+        del(db_pool)
         # db_credentials['pool_size'] = 32 # process_req / # of pool
-        mysql_pool = DBPool(**db_credentials) # type: ignore
+        db_pool = DBPool(**db_credentials) # type: ignore
         
         ########### multiprocessing block ###########
         if data:
@@ -379,9 +400,12 @@ if __name__ == "__main__":
         
         # update QC Analysis for data that are not auto downloaded by multiprocessing blocks
         print(f"Updating QC Data : {tgl}", flush=True)
-        db_query_b = f"SELECT DISTINCT kode FROM tb_qcdetail WHERE tanggal=\'{tgl}\' AND kode NOT IN (SELECT DISTINCT kode_res FROM tb_qcres WHERE tanggal_res=\'{tgl}\')"
+        if db_credentials['use_database'] == 'mysql':
+            db_query_b = f"SELECT DISTINCT kode FROM tb_qcdetail WHERE tanggal=\'{tgl}\' AND kode NOT IN (SELECT DISTINCT kode_res FROM tb_qcres WHERE tanggal_res=\'{tgl}\')"
+        elif db_credentials['use_database'] == 'postgresql':
+            db_query_b = f"SELECT DISTINCT code FROM stations_data_quality WHERE date='{tgl}' AND code NOT IN (SELECT DISTINCT code FROM stations_qc_details WHERE date='{tgl}')"
         vprint("query:",db_query_b)
-        data = mysql_pool.execute(db_query_b)
+        data = db_pool.execute(db_query_b)
         vprint(f"number of stations to be QC Analysis processed: {len(data)}") # type: ignore
         vprint(data)
 
@@ -390,15 +414,15 @@ if __name__ == "__main__":
             for sta in data:
                 kode_qc = sta[0]
                 vprint(f"{counter_qc}. {kode_qc}")
-                Analysis.QC_Analysis(mysql_pool,tgl,kode_qc)
+                Analysis.QC_Analysis(db_pool,tgl,kode_qc)
                 counter_qc+=1   
         else:
             print(f"QC Data {tgl} already complete", flush=True)
             
         # check if all data already complete
         del(data)
-        data_a = mysql_pool.execute(db_query_a)
-        data_b = mysql_pool.execute(db_query_b)
+        data_a = db_pool.execute(db_query_a)
+        data_b = db_pool.execute(db_query_b)
         if (len(data_a) > 0) or (len(data_b) > 0): # type: ignore
             print(f"Some data may incompletely processed, running from begining! ({run_trigger})", flush=True)
             run_trigger+=1
