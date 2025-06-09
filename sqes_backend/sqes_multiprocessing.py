@@ -358,7 +358,7 @@ if __name__ == "__main__":
             elif basic_config['use_database'] == 'postgresql':
                 flush_query = f"DELETE FROM stations_qc_details WHERE date = \'{tgl}\'"
             db_pool.execute(flush_query, commit=True)
-            vprint("flush qc_details data")
+            
             if basic_config['use_database'] == 'mysql':
                 flush_qcres_query = f"DELETE FROM tb_qcres WHERE tanggal_res = \'{tgl}\'"
             elif basic_config['use_database'] == 'postgresql':
