@@ -594,7 +594,7 @@ class Analysis():
                 
             # generate keterangan if keterangan is empty
             if len(ket) == 0:
-                ket.append('Tidak ada')
+                ket.append('')
             # generate general quality f station
             avg_percqc = np.sum(percqc)/3.0
             kualitas = Analysis.check_qc(avg_percqc)
