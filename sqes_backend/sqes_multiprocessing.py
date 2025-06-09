@@ -404,7 +404,7 @@ if __name__ == "__main__":
         if basic_config['use_database'] == 'mysql':
             db_query_b = f"SELECT DISTINCT kode FROM tb_qcdetail WHERE tanggal=\'{tgl}\' AND kode NOT IN (SELECT DISTINCT kode_res FROM tb_qcres WHERE tanggal_res=\'{tgl}\')"
         elif basic_config['use_database'] == 'postgresql':
-            db_query_b = f"SELECT DISTINCT code FROM stations_data_quality WHERE date='{tgl}' AND code NOT IN (SELECT DISTINCT code FROM stations_qc_details WHERE date='{tgl}')"
+            db_query_b = f"SELECT DISTINCT code FROM stations_qc_details WHERE date='{tgl}' AND code NOT IN (SELECT DISTINCT code FROM stations_data_quality WHERE date='{tgl}')"
         vprint("query:",db_query_b)
         data = db_pool.execute(db_query_b)
         vprint(f"number of stations to be QC Analysis processed: {len(data)}") # type: ignore
