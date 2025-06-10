@@ -386,8 +386,8 @@ class Calculation():
             # print("Warning: No valid RMS values could be calculated (all traces had npts=0 or were skipped). Returning 0.")
             return 0.0
 
-        print(rms_values, flush=True)
-        print(len(rms_values), flush=True)
+        # print(rms_values, flush=True)
+        # print(len(rms_values), flush=True)
         return sum(rms_values) / len(rms_values)
 
     @staticmethod
@@ -430,6 +430,7 @@ class Calculation():
         
         ampmax = max([tr.data.max() for tr in st])
         ampmin = min([tr.data.min() for tr in st])
+        print(ampmax, ampmin, flush=True)
         psdata = Calculation.cal_percent_availability(st)
         ngap,nover = Calculation.cal_gaps_overlaps(st)
         # nd = mseedqc.meta['num_samples'] ## not used
