@@ -370,6 +370,7 @@ class Calculation():
             return 0.0 # Or raise an error, or return None, depending on desired behavior
 
         for tr in st:
+            print(f"Processing trace {tr.id} with npts={tr.stats.npts}", flush=True)
             data = tr.data
             npts = tr.stats.npts
             
