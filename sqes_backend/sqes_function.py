@@ -386,6 +386,8 @@ class Calculation():
             print("Warning: No valid RMS values could be calculated (all traces had npts=0 or were skipped). Returning 0.")
             return 0.0
 
+        print(rms_values, flush=True)
+        print(len(rms_values), flush=True)
         return sum(rms_values) / len(rms_values)
 
     @staticmethod
