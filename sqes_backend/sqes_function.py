@@ -375,7 +375,7 @@ class Calculation():
             npts = tr.stats.npts
             
             # 2. Handle traces with zero npts
-            if npts == 0 or data is None or len(data) == 0:
+            if npts == 0 or data is None or len(data) == 0 or np.any(np.isnan(data)):
                 # print(f"Warning: Trace with ID {tr.id} has 0 data points (npts). Skipping this trace to avoid NaN.")
                 continue # Skip this trace and move to the next one
 
