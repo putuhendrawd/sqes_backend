@@ -378,7 +378,12 @@ class Calculation():
             if npts == 0:
                 print(f"Warning: Trace with ID {tr.id} has 0 data points (npts). Skipping this trace to avoid NaN.")
                 continue # Skip this trace and move to the next one
-                
+            
+            if npts <=1 :
+                print(f"Warning: Trace with ID {tr.id} has only {npts} data points. RMS cannot be calculated. Skipping this trace to avoid NaN.")
+                print(data)
+                continue
+
             rms_values.append(np.sqrt(np.sum(data**2) / npts))
         
         # After the loop, check if rms_values is empty (e.g., if all traces had npts=0)
