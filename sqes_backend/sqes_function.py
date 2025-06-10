@@ -420,6 +420,62 @@ class Calculation():
         return gaps, overlaps
     
     @staticmethod
+    def calculate_stream_amplitude(st):
+        """
+        Calculates the overall maximum and minimum amplitude across all traces in an ObsPy Stream,
+        ignoring NaN values.
+
+        Args:
+            st (obspy.core.stream.Stream): An ObsPy Stream object containing seismic traces.
+
+        Returns:
+            tuple: A tuple containing (ampmax, ampmin).
+                Returns (np.nan, np.nan) if no valid (non-NaN) data is found in the stream.
+        """
+        # Initialize with negative and positive infinity to ensure any finite value becomes the max/min
+        ampmax = -np.inf
+        ampmin = np.inf
+
+        valid_data_found = False
+
+        for tr in st:
+            data = tr.data
+
+            # Ensure data is a numpy array and handle empty or all-NaN traces
+            # ObsPy traces usually have .data as numpy arrays, but a check is good for robustness.
+            if not isinstance(data, np.ndarray):
+                try:
+                    data = np.array(data)
+                except TypeError:
+                    # print(f"Warning: Trace with ID {tr.id} has data that cannot be converted to a NumPy array. Skipping.")
+                    continue # Skip if data is not convertible
+
+            # Check for empty array or array consisting entirely of NaNs
+            if len(data) == 0 or np.all(np.isnan(data)):
+                # print(f"Info: Trace {tr.id} has no valid data (empty or all NaNs). Skipping for max/min calculation.")
+                continue # Skip this trace if it's empty or all NaNs
+
+            # Use np.nanmax() and np.nanmin() to correctly ignore NaN values
+            current_max = np.nanmax(data)
+            current_min = np.nanmin(data)
+
+            # Update overall max/min
+            if current_max > ampmax:
+                ampmax = current_max
+            if current_min < ampmin:
+                ampmin = current_min
+
+            valid_data_found = True
+
+        # After the loop, check if any valid data was processed
+        if not valid_data_found:
+            # If no valid data was found, return NaN for max and min
+            print("Warning: No valid amplitude data found across the entire stream. Returning (np.nan, np.nan).")
+            return np.nan, np.nan
+        else:
+            return ampmax, ampmin
+    
+    @staticmethod
     def prosess_matriks(files,data,time0,time1):
         st=data.copy()
         st.detrend()
@@ -428,9 +484,7 @@ class Calculation():
         if rms > 99999:
             rms = 99999
         
-        ampmax = max([tr.data.max() for tr in st])
-        ampmin = min([tr.data.min() for tr in st])
-        print(ampmax, ampmin, flush=True)
+        ampmax, ampmin = Calculation.calculate_stream_amplitude(st)
         psdata = Calculation.cal_percent_availability(st)
         ngap,nover = Calculation.cal_gaps_overlaps(st)
         # nd = mseedqc.meta['num_samples'] ## not used
@@ -475,6 +529,9 @@ class Calculation():
             return ampmax/ampmin
         elif ampmax == 0 or ampmin == 0:
             return 1.0
+        elif np.isnan(ampmax) or np.isnan(ampmin):
+            print("Warning: One of the amplitudes is NaN. Returning ratio as 0.0.")
+            return 0.0
         else:
             return ampmin/ampmax
     
