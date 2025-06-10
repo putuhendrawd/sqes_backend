@@ -363,11 +363,29 @@ class Calculation():
     @staticmethod
     def cal_rms(st):
         rms_values = []
+        
+        # 1. Handle empty stream 'st'
+        if not st:
+            print("Warning: Input stream 'st' is empty. Returning 0 to avoid NaN.")
+            return 0.0 # Or raise an error, or return None, depending on desired behavior
+
         for tr in st:
             data = tr.data
             npts = tr.stats.npts
+            
+            # 2. Handle traces with zero npts
+            if npts == 0:
+                print(f"Warning: Trace with ID {tr.id} has 0 data points (npts). Skipping this trace to avoid NaN.")
+                continue # Skip this trace and move to the next one
+                
             rms_values.append(np.sqrt(np.sum(data**2) / npts))
-        return sum(rms_values)/len(rms_values)
+        
+        # After the loop, check if rms_values is empty (e.g., if all traces had npts=0)
+        if not rms_values:
+            print("Warning: No valid RMS values could be calculated (all traces had npts=0 or were skipped). Returning 0.")
+            return 0.0
+
+        return sum(rms_values) / len(rms_values)
 
     @staticmethod
     def cal_percent_availability(st):
