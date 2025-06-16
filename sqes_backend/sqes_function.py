@@ -524,16 +524,24 @@ class Calculation():
     
     @staticmethod
     # calculation and process
-    def calculate_ratioamp(ampmin,ampmax):
-        if ampmax > ampmin:
-            return ampmax/ampmin
-        elif ampmax == 0 or ampmin == 0:
-            return 1.0
-        elif np.isnan(ampmax) or np.isnan(ampmin):
+    def calculate_ratioamp(ampmin, ampmax):
+        ratio = 0.0  # Initialize ratio
+
+        if np.isnan(ampmax) or np.isnan(ampmin):
             print("Warning: One of the amplitudes is NaN. Returning ratio as 0.0.")
-            return 0.0
+            ratio = 0.0
+        elif ampmax == 0 or ampmin == 0:
+            ratio = 1.0
+        elif ampmax > ampmin:
+            ratio = ampmax / ampmin
+        else:  # ampmin >= ampmax (and neither are zero or NaN)
+            ratio = ampmin / ampmax
+        
+        # Apply the limit
+        if ratio > 99999:
+            return 99999.0
         else:
-            return ampmin/ampmax
+            return ratio
     
 class Analysis():
     @staticmethod

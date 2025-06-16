@@ -250,7 +250,6 @@ def process_data(sta):
             sql = f"INSERT INTO stations_qc_details (id, code, date, channel, rms, amplitude_ratio, availability, num_gap, num_overlap, num_spikes, perc_above_nhnm, perc_below_nlnm, linear_dead_channel, gsn_dead_channel, lp_percentage, bw_percentage, sp_percentage) VALUES (\'{id_kode}\', \'{kode}\', \'{tgl}\', \'{cha}\', {rms}, {ratioamp}, {psdata}, {ngap}, {nover}, {num_spikes}, {pctH}, {pctL}, {str(round(dcl,2))}, {str(round(dcg,2))}, {diff20_100}, {diff5_20}, {diff5})"
         # vprint(sql)
         vprint(f"{id_kode} Saving to database")
-        print(sql)
         sql_execommit(pool,db,id_kode,sistem_sensor,tgl,sql) # tgl from global var
         vprint(f"{id_kode} Process finish")
         time.sleep(.5) #make res to the process
