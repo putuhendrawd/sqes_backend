@@ -74,9 +74,10 @@ def DownloadData(client, net, sta, loc, channel_prefixes, time0, time1, c):
                         # st = st.merge(fill_value=None)
                         loc_ = get_location_info(st)
                         st = st.select(location=loc_[0])
+                        print(st)
                     try:
                         inv = read_inventory(f"https://geof.bmkg.go.id/fdsnws/station/1/query?station={sta}&level=response&nodata=404")
-                        st.remove_response(inventory=inv, clean=True)
+                        # st.remove_response(inventory=inv, clean=True)
                         return st, inv
                     except:
                         return st, None
