@@ -61,15 +61,14 @@ def get_location_info(st):
     tmp = np.array(location)
     return np.unique(tmp)
 
-def DownloadData(client, sta, time0, time1, c):
+def DownloadData(client, net, sta, loc, channel_prefixes, time0, time1, c):
     signal.signal(signal.SIGALRM, handle_timeout)
     signal.alarm(600)
     try:
-        channel_codes = [f"SH{c}", f"BH{c}", f"HH{c}"] # [f"SH{c}", f"BH{c}", f"HH{c}"]
-        for channel_code in channel_codes:
-            network = "*" if channel_code == f"BH{c}" else "IA"
+        for channel_prefix in channel_prefixes:
+            channel_code = f"{channel_prefix}{c}"
             try:
-                st = client.get_waveforms(network, sta, "*", channel_code, time0, time1)
+                st = client.get_waveforms(net, sta, loc, channel_code, time0, time1)
                 if st.count() > 0:
                     if st.count() > 1:
                         # st = st.merge(fill_value=None)
@@ -77,6 +76,7 @@ def DownloadData(client, sta, time0, time1, c):
                         st = st.select(location=loc_[0])
                     try:
                         inv = read_inventory(f"https://geof.bmkg.go.id/fdsnws/station/1/query?station={sta}&level=response&nodata=404")
+                        st.remove_response(inventory=inv, clean=True)
                         return st, inv
                     except:
                         return st, None
@@ -126,8 +126,11 @@ def process_data(sta):
     # timeout function
     signal.signal(signal.SIGALRM, handle_timeout)
     db = basic_config['use_database']
-    kode = sta[0]
-    sistem_sensor = sta[1]
+    network = sta[0]
+    kode = sta[1]
+    location = sta[2]
+    sistem_sensor = sta[3]
+    channel_prefixes = sta[4].split(',')
     pool = DBPool(**db_credentials) # type: ignore
     channel = ['E','N','Z']
     print(f"<{sistem_sensor}> {kode} PROCESS START", flush=True)
@@ -136,7 +139,7 @@ def process_data(sta):
         id_kode = f"{kode}_{ch}_{tgl}" # tgl from global var
         # vprint(id_kode)
         # download data
-        sig, inv = DownloadData(client,kode,time0,time1,ch) # time0,time1 from global var
+        sig, inv = DownloadData(client,network,kode,location,channel_prefixes,time0,time1,ch) # time0,time1 from global var
         # vprint(f"{id_kode} No Data" if sig=="No Data" else f"{id_kode} Downloaded")
         if sig=="No Data":
             sql=sql_default(db, id_kode,kode,tgl,ch,'0','0','0','1','0','0') # tgl from global var
@@ -368,9 +371,9 @@ if __name__ == "__main__":
 
         ## query for 'not downloaded' data
         if basic_config['use_database'] == 'mysql':
-            db_query_a = f"SELECT kode_sensor,sistem_sensor FROM tb_slmon WHERE kode_sensor NOT IN (SELECT kode FROM (SELECT DISTINCT kode, COUNT(kode) AS ccode FROM tb_qcdetail WHERE tanggal=\'{tgl}\' GROUP BY kode) AS o WHERE o.ccode = 3)"  
+            db_query_a = f"WITH distinct_channels AS (SELECT DISTINCT code, location, SUBSTRING(channel, 1, 2) AS channel_prefix, CASE SUBSTRING(channel, 1, 2) WHEN 'SH' THEN 1 WHEN 'BH' THEN 2 WHEN 'HH' THEN 3 WHEN 'HN' THEN 4 ELSE 5 END AS sort_order FROM stations_sensor), aggregated_channels AS (SELECT code, location, GROUP_CONCAT(channel_prefix ORDER BY sort_order SEPARATOR ',') AS channel_prefixes FROM distinct_channels GROUP BY code, location), codes_to_exclude AS (SELECT code FROM stations_qc_details WHERE date = \'{tgl}\' GROUP BY code HAVING COUNT(code) = 3) SELECT s.network, s.code, ac.location, s.network_group, ac.channel_prefixes FROM stations AS s JOIN aggregated_channels AS ac ON s.code = ac.code LEFT JOIN codes_to_exclude AS cte ON s.code = cte.code WHERE cte.code IS NULL;"  
         elif basic_config['use_database'] == 'postgresql':
-            db_query_a = f"SELECT code,network_group FROM stations WHERE code NOT IN (SELECT code FROM (SELECT DISTINCT code, COUNT(code) AS ccode FROM stations_qc_details WHERE date=\'{tgl}\' GROUP BY code) AS o WHERE o.ccode = 3)"
+            db_query_a = f"WITH distinct_channels AS ( SELECT DISTINCT code, location, SUBSTRING(channel, 1, 2) AS channel_prefix, CASE SUBSTRING(channel, 1, 2) WHEN 'SH' THEN 1 WHEN 'BH' THEN 2 WHEN 'HH' THEN 3 WHEN 'HN' THEN 4 ELSE 5 END AS sort_order FROM stations_sensor ), aggregated_channels AS ( SELECT code, location, STRING_AGG(channel_prefix, ',' ORDER BY sort_order) AS channel_prefixes FROM distinct_channels GROUP BY code, location ), codes_to_exclude AS ( SELECT code FROM stations_qc_details WHERE date = \'{tgl}\' GROUP BY code HAVING COUNT(code) = 3 ) SELECT s.network, s.code, ac.location, s.network_group, ac.channel_prefixes FROM stations AS s JOIN aggregated_channels AS ac ON s.code = ac.code LEFT JOIN codes_to_exclude AS cte ON s.code = cte.code WHERE cte.code IS NULL;"
         vprint("query:",db_query_a)
         data = db_pool.execute(db_query_a)
         vprint(data)
