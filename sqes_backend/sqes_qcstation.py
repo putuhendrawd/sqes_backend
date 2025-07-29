@@ -59,18 +59,16 @@ def get_location_info(st):
     return np.unique(tmp)
     
 # download data function
-def DownloadData(client, sta, time0, time1, c):
+def DownloadData(client, net, sta, loc, channel_prefixes, time0, time1, c):
     signal.signal(signal.SIGALRM, handle_timeout)
     signal.alarm(600)
     try:
-        channel_codes = [f"SH{c}", f"BH{c}", f"HH{c}"] # [f"SH{c}", f"BH{c}", f"HH{c}"]
-        for channel_code in channel_codes:
-            network = "*" if channel_code == f"BH{c}" else "IA"
+        for channel_prefix in channel_prefixes:
+            channel_code = f"{channel_prefix}{c}"
             try:
-                st = client.get_waveforms(network, sta, "*", channel_code, time0, time1)
+                st = client.get_waveforms(net, sta, loc, channel_code, time0, time1)
                 if st.count() > 0:
-                    st = st.merge(fill_value='interpolate')
-                    if st.count() > 3:
+                    if st.count() > 1:
                         loc_ = get_location_info(st)
                         st = st.select(location=loc_[0])
                     try:
@@ -216,7 +214,7 @@ dt_start = datetime.now()
 print(f"running start at {dt_start}", flush=True)
 
 ## input ##
-t1=UTCDateTime("20240615")
+t1=UTCDateTime("20250728")
 t2=t1+timedelta(hours=6)
 tif_folder = "../files/spk_site"
 geology_tif = "geology.tif"
@@ -255,13 +253,9 @@ src = [geology_src, vs30_src, pvout_src]
 
 ## uncomment below if use postgresql database
 db_pool = DBPool(**db_credentials) # type: ignore
-db_query = f"SELECT code,latitude,longitude FROM stations"
+db_query = f"WITH distinct_channels AS (SELECT DISTINCT code, location, SUBSTRING(channel, 1, 2) AS channel_prefix, CASE SUBSTRING(channel, 1, 2) WHEN 'SH' THEN 1 WHEN 'BH' THEN 2 WHEN 'HH' THEN 3 WHEN 'HN' THEN 4 ELSE 5 END AS sort_order FROM stations_sensor), aggregated_channels AS (SELECT code, location, STRING_AGG(channel_prefix, ',' ORDER BY sort_order) AS channel_prefixes FROM distinct_channels GROUP BY code, location) SELECT s.code, s.latitude, s.longitude, s.network, ac.location, ac.channel_prefixes FROM stations AS s JOIN aggregated_channels AS ac ON s.code = ac.code;"
 tb_slmon = db_pool.execute(db_query)
-update_query = """
-UPDATE stations_site_quality
-SET geology = %s, vs30 = %s, photovoltaic = %s, hvsr = %s, psd = %s, score = %s, site_quality = %s, geoval = %s, vs30val = %s, photoval = %s, hvsrval = %s, psdval = %s 
-WHERE code = %s;
-"""
+update_query = "INSERT INTO stations_site_quality (code, geology, vs30, photovoltaic, hvsr, psd, score, site_quality, geoval, vs30val, photoval, hvsrval, psdval) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT (code) DO UPDATE SET geology = EXCLUDED.geology, vs30 = EXCLUDED.vs30, photovoltaic = EXCLUDED.photovoltaic, hvsr = EXCLUDED.hvsr, psd = EXCLUDED.psd, score = EXCLUDED.score, site_quality = EXCLUDED.site_quality, geoval = EXCLUDED.geoval, vs30val = EXCLUDED.vs30val, photoval = EXCLUDED.photoval, hvsrval = EXCLUDED.hvsrval, psdval = EXCLUDED.psdval;"
 
 # load client
 client = Client(client_credentials['url'],user=client_credentials['user'],password=client_credentials['password'])
@@ -283,6 +277,9 @@ for data in tb_slmon:
     try:
         # load and config
         station = data[0]
+        network = data[3]
+        location = data[4]
+        channel_prefixes = data[5].split(',')
         psd_outfile = os.path.join(basic_config['outputqcstationpsd'],f"{station}_PSD.png")
         mseed_outfile = os.path.join(basic_config['outputqcstationmseed'],f"{station}.mseed")
         hvsr_outfile = os.path.join(basic_config['outputqcstationhvsr'],f"{station}_HVSR.png")
@@ -290,7 +287,7 @@ for data in tb_slmon:
         tiff_value = get_tif_values(src, float(data[1]), float(data[2]))
         print(station, tiff_value['geology'], tiff_value['vs30'], tiff_value['photovoltaic'], flush=True)
         # load stream and inventory
-        st, inv = DownloadData(client,station,t1,t2,"*")
+        st, inv = DownloadData(client,network, station, location, channel_prefixes, t1, t2, "*")
         # processing psd
         psds=[];periods=[];label=[];perc_psd=[]
         for tr in st:
@@ -376,7 +373,7 @@ for data in tb_slmon:
         keterangan2 = nilai_to_ket(nilai)
         print(station,geo,vs30,photo,hvsr_t0,mean_psd,nilai,keterangan2,gval,vval,pval,hval,psdval,sep=",", flush=True)
         # update DB
-        update_query_values = (geo,vs30,photo,hvsr_t0,mean_psd,nilai,keterangan2,gval,vval,pval,hval,psdval,station,)
+        update_query_values = (station,geo,vs30,photo,hvsr_t0,mean_psd,nilai,keterangan2,gval,vval,pval,hval,psdval,)
         db_pool.execute(sql=update_query,args=update_query_values,commit=True)
     except Exception as e:
         print(e, flush=True)
