@@ -9,7 +9,7 @@ import json
 from obspy import UTCDateTime, read_inventory
 from obspy.clients.fdsn import Client
 from obspy.imaging.cm import pqlx
-from sqes_function import Calculation, Analysis, DBPool, Config
+from sqes_function import Calculation, Analysis, DBPool, Config, Utils
 from datetime import datetime
 import multiprocessing
 # from concurrent.futures import ThreadPoolExecutor
@@ -52,39 +52,6 @@ def is_client_connected(client):
         return True
     except (requests.ConnectionError, requests.Timeout):
         return False
-
-# download data function
-def get_location_info(st):
-    location = []
-    for tr in st:
-        location.append(tr.stats.location)
-    tmp = np.array(location)
-    return np.unique(tmp)
-
-def DownloadData(client, net, sta, loc, channel_prefixes, time0, time1, c):
-    signal.signal(signal.SIGALRM, handle_timeout)
-    signal.alarm(600)
-    try:
-        for channel_prefix in channel_prefixes:
-            channel_code = f"{channel_prefix}{c}"
-            try:
-                st = client.get_waveforms(net, sta, loc, channel_code, time0, time1)
-                if st.count() > 0:
-                    if st.count() > 1:
-                        loc_ = get_location_info(st)
-                        st = st.select(location=loc_[0])
-                    try:
-                        inv = read_inventory(f"https://geof.bmkg.go.id/fdsnws/station/1/query?station={sta}&level=response&nodata=404")
-                        return st, inv
-                    except:
-                        return st, None
-            except:
-                continue
-    except TimeoutError:
-        vprint(f"!! {sta} download timeout!")
-        return "No Data", None
-    # if all except
-    return "No Data", None
 
 # default sql for bad data
 def sql_default(db,id_kode,kode,tgl,cha,rms,ratioamp,psdata,ngap,nover,num_spikes):
@@ -137,7 +104,7 @@ def process_data(sta):
         id_kode = f"{kode}_{ch}_{tgl}" # tgl from global var
         # vprint(id_kode)
         # download data
-        sig, inv = DownloadData(client,network,kode,location,channel_prefixes,time0,time1,ch) # time0,time1 from global var
+        sig, inv = Utils.download_data(client,network,kode,location,channel_prefixes,time0,time1,ch) # time0,time1 from global var
         # vprint(f"{id_kode} No Data" if sig=="No Data" else f"{id_kode} Downloaded")
         if sig=="No Data":
             sql=sql_default(db, id_kode,kode,tgl,ch,'0','0','0','1','0','0') # tgl from global var

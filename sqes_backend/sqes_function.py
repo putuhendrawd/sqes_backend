@@ -254,6 +254,39 @@ class DBPool(object):
     def print_db(self):
         print(self.dbconfig, flush=True)
 
+class Utils(object):
+    @staticmethod
+    def get_location_info(st):
+        location = []
+        for tr in st:
+            location.append(tr.stats.location)
+        tmp = np.array(location)
+        return np.unique(tmp)
+
+    @staticmethod
+    def download_data(client, net, sta, loc, channel_prefixes, time0, time1, c):
+        try:
+            for channel_prefix in channel_prefixes:
+                channel_code = f"{channel_prefix}{c}"
+                try:
+                    st = client.get_waveforms(net, sta, loc, channel_code, time0, time1)
+                    if st.count() > 0:
+                        if st.count() > 1:
+                            loc_ = Utils.get_location_info(st)
+                            st = st.select(location=loc_[0])
+                        try:
+                            inv = client.get_stations(network=net, station=sta, level="response")
+                            return st, inv
+                        except:
+                            return st, None
+                except:
+                    continue
+        except TimeoutError:
+            print(f"!! {sta} download timeout!")
+            return "No Data", None
+        # if all except
+        return "No Data", None
+
 class Calculation():
     @staticmethod
     def get_models(periods,powers):

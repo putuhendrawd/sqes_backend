@@ -14,7 +14,7 @@ from obspy.clients.fdsn import Client
 from obspy.signal import PPSD
 from obspy.imaging.cm import pqlx
 from obspy.signal.quality_control import MSEEDMetadata
-from sqes_function import Calculation, Analysis, DBPool, Config
+from sqes_function import Calculation, Analysis, DBPool, Config, Utils
 from datetime import datetime
 matplotlib.use('Agg')
 
@@ -50,39 +50,6 @@ def is_client_connected(client):
         return True
     except (requests.ConnectionError, requests.Timeout):
         return False
-
-def get_location_info(st):
-    location = []
-    for tr in st:
-        location.append(tr.stats.location)
-    tmp = np.array(location)
-    return np.unique(tmp)
-    
-# download data function
-def DownloadData(client, net, sta, loc, channel_prefixes, time0, time1, c):
-    signal.signal(signal.SIGALRM, handle_timeout)
-    signal.alarm(600)
-    try:
-        for channel_prefix in channel_prefixes:
-            channel_code = f"{channel_prefix}{c}"
-            try:
-                st = client.get_waveforms(net, sta, loc, channel_code, time0, time1)
-                if st.count() > 0:
-                    if st.count() > 1:
-                        loc_ = get_location_info(st)
-                        st = st.select(location=loc_[0])
-                    try:
-                        inv = read_inventory(f"https://geof.bmkg.go.id/fdsnws/station/1/query?station={sta}&level=response&nodata=404")
-                        return st, inv
-                    except:
-                        return st, None
-            except:
-                continue
-    except TimeoutError:
-        print(f"!! {sta} download timeout!")
-        return "No Data", None
-    # if all except
-    return "No Data", None
 
 def time_check(st):
 	endt = min([st[0].stats.endtime, st[1].stats.endtime, st[2].stats.endtime])
@@ -152,7 +119,7 @@ def gval_to_geo(gval):
     elif gval == 4:
         return "Batuan/Sedimen Tua Periode Tersier"
     else:
-        return "-"
+        return None
     
 def vs30_to_ket_vval(vs30):
     if vs30 > 1500:
@@ -287,7 +254,7 @@ for data in tb_slmon:
         tiff_value = get_tif_values(src, float(data[1]), float(data[2]))
         print(station, tiff_value['geology'], tiff_value['vs30'], tiff_value['photovoltaic'], flush=True)
         # load stream and inventory
-        st, inv = DownloadData(client,network, station, location, channel_prefixes, t1, t2, "*")
+        st, inv = Utils.download_data(client, network, station, location, channel_prefixes, t1, t2, "*")
         # processing psd
         psds=[];periods=[];label=[];perc_psd=[]
         for tr in st:
