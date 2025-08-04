@@ -143,7 +143,7 @@ def pvout_to_ket_pval(pvout):
     elif pvout <= 1000:
         return "Kurang", 1
     else:
-        return "-", 0
+        return None, 0
 
 def hvsr_to_ket_hval(t0):
     if t0 > 0.6:
