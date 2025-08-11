@@ -360,7 +360,7 @@ if __name__ == "__main__":
         ########### multiprocessing block ###########
         if data:
             with multiprocessing.Pool(processes=processes_req) as pool: # type: ignore
-                pool.map(process_data,data[:10])
+                pool.map(process_data,data)
             # with ThreadPoolExecutor(max_workers=4) as executor:
             #     executor.map(process_data,data)
         else:
