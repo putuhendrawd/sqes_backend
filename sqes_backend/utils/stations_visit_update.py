@@ -4,6 +4,8 @@ import pandas as pd
 from sqes_function import Config
 import psycopg2
 from sqlalchemy import create_engine
+from urllib.parse import quote
+
 
 # ignore warnings
 import warnings
@@ -14,7 +16,8 @@ print("-------------------------------------------------------------------------
 # connect db
 db_config = Config.load_config(section="postgresql") 
 engine = psycopg2.connect(**db_config) # type: ignore
-engine2 = create_engine('postgresql+psycopg2://sqes:idrip4bmkg@182.16.248.174/sqes')
+encoded_password = quote(db_config['password'])
+engine2 = create_engine(f"postgresql+psycopg2://{db_config['user']}:{encoded_password}@{db_config['host']}:{db_config['port']}/{db_config['database']}")
 
 # load stations_visit db
 stations_visit_db = pd.read_sql('select * from stations_visit', con=engine)
