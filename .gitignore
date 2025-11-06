@@ -4,7 +4,7 @@
 
 # ignore credentials and config
 *credential*
-*config*
+config/config.ini
 
 # ignore temporary file
 *temp*
