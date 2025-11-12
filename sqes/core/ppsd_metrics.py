@@ -1,5 +1,5 @@
 import numpy as np
-from numpy.polynomial.polynomial import polyfit
+from numpy import polyfit
 from obspy import Stream, Trace, Inventory
 from obspy.signal import PPSD
 from typing import Optional, cast
@@ -113,7 +113,7 @@ def _dead_channel_lin(psd, t, fs):
     # Step 3: Fit the line to [PSD mean vs. log(period)]
     tn_log = np.log10(tn)
     slope, intercept = polyfit(tn_log, psd_slice, 1)
-    psdfit = intercept + slope * tn_log 
+    psdfit = slope * tn_log + intercept
     
     # Step 4: Calculate the standard deviation of the residuals (RMSE)
     # value = sqrt [ average( (BestFitLine - PSDmean)^2 ) ]
