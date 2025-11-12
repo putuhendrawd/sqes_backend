@@ -101,7 +101,7 @@ def _calculate_spikes(st: Stream, wn: int, sigma: int, method: str = 'fast'):
                 
                 data_centered = data[start_index : start_index + len(vert_idx_list)]
                 difference = np.abs(data_centered - x_mean)
-                threshold = 1.4826 * sigma * mad
+                threshold = 1.4826 * sigma * mad + 1e-9
                 
                 outlier_idx = np.full(difference.shape, False)
                 mask = threshold > 0
@@ -257,7 +257,7 @@ def process_basic_metrics(files, data: Stream, day_start_time: UTCDateTime, day_
     Now calculates ratioamp internally.
     """
     st = data.copy()
-    st.detrend()
+    # st.detrend()
     
     rms = _calculate_rms(st)
     if rms > 99999:
