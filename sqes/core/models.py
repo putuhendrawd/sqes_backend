@@ -43,6 +43,11 @@ def get_models(periods, powers):
             # Find the segment this period falls into
             highInd = [i for i, x in enumerate([period > Ph][0]) if x][-1]
             lowInd = [i for i, x in enumerate([period > Pl][0]) if x][-1]
+
+            if highInd >= len(Ah) or lowInd >= len(Al):
+                pInd += 1
+                continue
+            
         except IndexError:
             # Period is outside the defined model range (e.g., < 0.1s)
             pInd += 1
