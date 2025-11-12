@@ -6,7 +6,7 @@ from tqdm.auto import tqdm
 from typing import Dict, Any
 from sqlalchemy.sql.expression import text
 from sqlalchemy.engine.create import create_engine
-from sqlalchemy.dialects import postgresql
+from io import StringIO
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +49,7 @@ def update_sensor_table(db_type: str, db_creds: Dict[str, Any], update_url: str)
             # Get data
             url = update_url.format(station_code=station)
             html_ = requests.get(url, timeout=10).text
-            df_list = pd.read_html(html_)
+            df_list = pd.read_html(StringIO(html_))
             
             # Process data
             temp_df = df_list[0].copy()
