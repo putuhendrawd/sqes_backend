@@ -31,3 +31,4 @@ dependencies:
 
   # --- Testing ---
   - pytest
+  - pytest-mock
