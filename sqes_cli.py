@@ -1,11 +1,8 @@
-#!/usr/bin/env python3
 import sys
 import logging
 import argparse
 from datetime import datetime
-from typing import Optional
 
-# Import from our 'sqes' package
 from sqes import __version__
 from sqes.services.logging_config import setup_main_logging
 from sqes.services.config_loader import load_config
@@ -120,12 +117,16 @@ if __name__ == "__main__":
         log_date_str = args.date
     elif args.date_range:
         log_date_str = args.date_range[0] # Use the start date
+    elif args.check_config:
+        log_date_str = f"config_{datetime.now().strftime('%Y%m%d')}"
     else:
         # Fallback for --check-config or if no date is given
         log_date_str = datetime.now().strftime('%Y%m%d') 
-        
-    # 2. Setup Logging (now with the date string)
-    log_level = setup_main_logging(args.verbose, log_date_str, log_dir="logs")
+
+    if args.check_config:
+        log_level = setup_main_logging(args.verbose+1, log_date_str, log_dir="logs")   
+    else:
+        log_level = setup_main_logging(args.verbose, log_date_str, log_dir="logs")
     
     if args.check_config:
         logger.info("Running configuration and connection check...")
@@ -174,7 +175,7 @@ if __name__ == "__main__":
                 
         except Exception as e:
             logger.error(f"Sensor update failed: {e}", exc_info=True)
-            # We don't exit; the main processing can still run.
+            sys.exit(1)
             
     elif not use_db:
         logger.info("Database is disabled, skipping sensor update.")

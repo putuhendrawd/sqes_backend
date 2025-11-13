@@ -51,6 +51,7 @@ def setup_main_logging(verbosity_level: int, log_date_str: str, log_dir: str = "
     )
     
     # Suppress overly verbose libraries
+    logging.captureWarnings(True)
     logging.getLogger("matplotlib").setLevel(logging.WARNING)
     logging.getLogger("obspy").setLevel(logging.WARNING)
     
