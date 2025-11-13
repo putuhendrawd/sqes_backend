@@ -50,7 +50,7 @@ def process_station_data(sta_tuple,
         return
 
     logger = setup_worker_logging(log_level, kode)
-    logger.info(f"PROCESS START ({sistem_sensor}). Components: {channel_components}")
+    logger.info(f"PROCESS START {network}.{kode} ({sistem_sensor}). Components: {channel_components}")
     
     try:
         # --- Create DB Pool and Repository ---
@@ -193,7 +193,7 @@ def process_station_data(sta_tuple,
             logger.debug(f"{id_kode} Process basic info")
             spike_method = basic_config.get('spike_method', 'fast').lower()
 
-            rms, ratioamp, psdata, ngap, nover, num_spikes = basic_metrics.process_basic_metrics(
+            metrics = basic_metrics.process_basic_metrics(
                 mseed_naming_code, 
                 sig, 
                 time0, 
@@ -202,13 +202,14 @@ def process_station_data(sta_tuple,
             )
             
             basic_metrics_dict = {
-                'rms': str(round(float(rms), 2)),
-                'ratioamp': str(round(float(ratioamp), 2)),
-                'psdata': str(round(float(psdata), 2)),
-                'ngap': str(int(ngap)),
-                'nover': str(int(nover)),
-                'num_spikes': str(int(num_spikes))
+                'rms': str(round(float(metrics['rms']), 2)),
+                'ratioamp': str(round(float(metrics['ratioamp']), 2)),
+                'psdata': str(round(float(metrics['psdata']), 2)),
+                'ngap': str(int(metrics['ngap'])),
+                'nover': str(int(metrics['nover'])),
+                'num_spikes': str(int(metrics['num_spikes']))
             }
+
         except Exception as e:
             logger.error(f"{id_kode} basic info exception: {e}", exc_info=True)
             log_default_and_continue(cha=cha, reason="Basic metrics failed")
