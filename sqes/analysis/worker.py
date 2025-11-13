@@ -40,9 +40,10 @@ def process_station_data(sta_tuple,
         (network, kode, location, 
          sistem_sensor, channel_prefixes_str, channel_components_str) = sta_tuple
          
-        channel_prefixes = channel_prefixes_str.split(',')
-        # --- NEW: Get the component list (e.g., ['E', 'N', 'Z'] or ['1', '2', 'Z']) ---
-        channel_components = channel_components_str.split(',')
+        location = location or ''
+        channel_prefixes = (channel_prefixes_str or '').split(',')
+        channel_components = (channel_components_str or '').split(',')
+
         
     except Exception as e:
         print(f"!! FATAL: Error unpacking station tuple {sta_tuple}: {e}", flush=True)

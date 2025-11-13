@@ -18,78 +18,87 @@ class QCRepository:
     def _get_query(self, query_name: str) -> str:
         """Centralized query storage."""
         
-        # This CTE (Common Table Expression) builds the station list.
-        # It now aggregates both channel_prefixes (BH,HH) and
-        # channel_components (E,N,Z).
+        # --- THIS IS THE UPDATED CTE ---
+        # This new query joins *only* on station code.
         station_tuple_base_cte = """
-            WITH distinct_channels_prefixes AS (
-                -- 1. Find all *unique* channel prefixes and their sort order
-                SELECT DISTINCT 
-                    code, 
-                    location, 
+            WITH sensor_info AS (
+                -- 1. Get all sensor data, ranking locations per station
+                SELECT 
+                    code,
+                    COALESCE(location, '') AS loc,
                     SUBSTRING(channel, 1, 2) AS channel_prefix,
+                    SUBSTRING(channel, 3, 1) AS channel_component,
                     CASE SUBSTRING(channel, 1, 2) 
                         WHEN 'SH' THEN 1 WHEN 'BH' THEN 2 
                         WHEN 'HH' THEN 3 WHEN 'HN' THEN 4 
                         ELSE 5 
-                    END AS sort_order 
+                    END AS sort_order,
+                    -- Rank locations: '00' is best, then '', then others.
+                    ROW_NUMBER() OVER(
+                        PARTITION BY code 
+                        ORDER BY CASE WHEN location = '00' THEN 1 WHEN location = '' THEN 2 ELSE 3 END, location
+                    ) as loc_rank
                 FROM stations_sensor
             ),
-            distinct_channel_components AS (
-                -- 2. Find all *unique* channel components
-                SELECT DISTINCT
-                    code,
-                    location,
-                    SUBSTRING(channel, 3, 1) AS channel_component
-                FROM stations_sensor
+            distinct_prefixes AS (
+                -- 2. Get unique, sorted prefixes *per code*
+                SELECT DISTINCT code, channel_prefix, sort_order
+                FROM sensor_info
+            ),
+            distinct_components AS (
+                -- 3. Get unique components *per code*
+                SELECT DISTINCT code, channel_component
+                FROM sensor_info
             ),
             aggregated_prefixes AS (
-                -- 3. Aggregate the unique prefixes, *now* we can ORDER BY sort_order
-                SELECT
-                    code,
-                    location,
-                    {agg_function_prefix} AS channel_prefixes
-                FROM distinct_channels_prefixes
-                GROUP BY code, location
+                -- 4. Aggregate prefixes
+                SELECT code, {agg_function_prefix} AS channel_prefixes
+                FROM distinct_prefixes
+                GROUP BY code
             ),
             aggregated_components AS (
-                -- 4. Aggregate the unique components
-                SELECT
-                    code,
-                    location,
-                    {agg_function_comp} AS channel_components
-                FROM distinct_channel_components
-                GROUP BY code, location
+                -- 5. Aggregate components
+                SELECT code, {agg_function_comp} AS channel_components
+                FROM distinct_components
+                GROUP BY code
+            ),
+            primary_location AS (
+                -- 6. Select the "best" location for each code (the one ranked #1)
+                SELECT DISTINCT code, loc
+                FROM sensor_info
+                WHERE loc_rank = 1
             )
-            -- 5. Join all the results
+            -- 7. Final Join: Join all aggregates to the main stations table
             SELECT 
-                s.network, s.code, ac.location, s.network_group, 
-                ap.channel_prefixes,
-                ac.channel_components
+                s.network, s.code, 
+                -- Use the "best" location from stations_sensor
+                COALESCE(pl.loc, '') AS location, 
+                s.network_group, 
+                COALESCE(ap.channel_prefixes, '') AS channel_prefixes,
+                COALESCE(ac.channel_components, '') AS channel_components
             FROM stations AS s 
-            LEFT JOIN aggregated_prefixes AS ap ON s.code = ap.code AND s.location = ap.location
-            LEFT JOIN aggregated_components AS ac ON s.code = ac.code AND s.location = ac.location
+            -- Join *only* on s.code
+            LEFT JOIN aggregated_prefixes AS ap ON s.code = ap.code
+            LEFT JOIN aggregated_components AS ac ON s.code = ac.code
+            LEFT JOIN primary_location AS pl ON s.code = pl.code
         """
         
-        # SQL dialects handle string aggregation differently.
         mysql_cte = station_tuple_base_cte.format(
             agg_function_prefix="GROUP_CONCAT(channel_prefix ORDER BY sort_order SEPARATOR ',')", 
-            agg_function_comp="GROUP_CONCAT(channel_component SEPARATOR ',')"
+            agg_function_comp="GROUP_CONCAT(DISTINCT channel_component SEPARATOR ',')"
         )
-        # This new format is now valid for PostgreSQL
         postgresql_cte = station_tuple_base_cte.format(
             agg_function_prefix="STRING_AGG(channel_prefix, ',' ORDER BY sort_order)", 
-            agg_function_comp="STRING_AGG(channel_component, ',')"
+            agg_function_comp="STRING_AGG(DISTINCT channel_component, ',')"
         )
 
         queries = {
             'mysql': {
                 'get_stations': f"""
                     {mysql_cte}
-                    LEFT JOIN (
+                    WHERE s.code NOT IN (
                         SELECT code FROM tb_qcdetail WHERE tanggal = %s GROUP BY code HAVING COUNT(code) >= 3
-                    ) AS cte ON s.code = cte.code 
-                    WHERE cte.code IS NULL;
+                    );
                 """,
                 'get_station_tuple': f"""
                     {mysql_cte}
@@ -130,10 +139,9 @@ class QCRepository:
             'postgresql': {
                 'get_stations': f"""
                     {postgresql_cte}
-                    LEFT JOIN (
+                    WHERE s.code NOT IN (
                         SELECT code FROM stations_qc_details WHERE date = %s GROUP BY code HAVING COUNT(code) >= 3
-                    ) AS cte ON s.code = cte.code 
-                    WHERE cte.code IS NULL;
+                    );
                 """,
                 'get_station_tuple': f"""
                     {postgresql_cte}
@@ -191,7 +199,7 @@ class QCRepository:
         query = self._get_query('get_station_tuple')
         result = self.pool.execute(query, args=(station_code,))
         if result:
-            return result[0] # Return the first (and only) row
+            return result[0]
         else:
             return None
 
@@ -209,7 +217,7 @@ class QCRepository:
     def get_straggler_stations(self, tgl: str, station_list: Optional[list] = None):
         """Fetches straggler stations, optionally filtered by a list."""
         query = self._get_query('get_stragglers')
-        args = [tgl, tgl]
+        args = [tgl]
         
         if station_list:
             placeholders = ', '.join(['%s'] * len(station_list))
