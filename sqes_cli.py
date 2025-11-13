@@ -143,8 +143,9 @@ if __name__ == "__main__":
         logger.critical(f"Failed to load [basic] config: {e}. Exiting.", exc_info=True)
         sys.exit(1)
 
-    # 3. --- NEW: Run Sensor Update ---
-    use_db = str(basic_config.get('use_database', 'true')).lower() == 'true'
+    # 3. Run sensor update
+    use_db_config_value = str(basic_config.get('use_database', 'true')).lower()
+    use_db = use_db_config_value not in ['false', 'no', '0']
     
     if use_db and not args.skip_sensor_update:
         logger.info("Running sensor table update...")
