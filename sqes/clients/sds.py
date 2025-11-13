@@ -32,7 +32,7 @@ def get_waveforms(client: SDSClient, net: str, sta: str, loc: str,
             )
             
             if st.count() > 0:
-                st.merge(method=1) 
+                # st.merge(method=1) 
                 logger.debug(f"Success: Loaded {net}.{sta}.{loc_id}.{cha} from SDS")
                 return st
 
