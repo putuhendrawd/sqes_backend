@@ -1,4 +1,3 @@
-# sqes/infrastructure/logging_config.py
 import logging
 import sys
 import os
@@ -29,7 +28,7 @@ def setup_main_logging(verbosity_level: int, log_dir: str = "logs"):
     # Basic config for the root logger
     logging.basicConfig(
         level=log_level,
-        format="[%(asctime)s] [%(name)-20s] [%(levelname)-8s] %(message)s",
+        format="[%(asctime)s] [%(name)-30s] [%(levelname)-8s] %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
         handlers=[
             logging.StreamHandler(sys.stdout), # Console handler
@@ -67,7 +66,7 @@ def setup_worker_logging(log_level: int, station_code: str):
         formatter = logging.Formatter(
             # Format includes station code for easy reading
             f"[%(asctime)s] [{station_code:5s}] [%(levelname)-8s] %(message)s",
-            "%H:%M:%S"
+            "%Y-%m-%d %H:%M:%S"
         )
         handler.setFormatter(formatter)
         logger.addHandler(handler)
