@@ -115,7 +115,17 @@ if __name__ == "__main__":
         sys.exit(0)
 
     # 1. Setup Logging
-    log_level = setup_main_logging(args.verbose, log_dir="logs")
+    log_date_str = None
+    if args.date:
+        log_date_str = args.date
+    elif args.date_range:
+        log_date_str = args.date_range[0] # Use the start date
+    else:
+        # Fallback for --check-config or if no date is given
+        log_date_str = datetime.now().strftime('%Y%m%d') 
+        
+    # 2. Setup Logging (now with the date string)
+    log_level = setup_main_logging(args.verbose, log_date_str, log_dir="logs")
     
     if args.check_config:
         logger.info("Running configuration and connection check...")
