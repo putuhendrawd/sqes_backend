@@ -65,7 +65,7 @@ def setup_worker_logging(log_level: int, station_code: str):
         handler = logging.StreamHandler(sys.stdout)
         formatter = logging.Formatter(
             # Format includes station code for easy reading
-            f"[%(asctime)s] [{station_code:5s}] [%(levelname)-8s] %(message)s",
+            f"[%(asctime)s] [{station_code:30s}] [%(levelname)-8s] %(message)s",
             "%Y-%m-%d %H:%M:%S"
         )
         handler.setFormatter(formatter)
