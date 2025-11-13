@@ -1,12 +1,12 @@
-# sqes/analysis/sensor_updater.py
 import logging
 import requests
 import pandas as pd
 from tqdm.auto import tqdm
 from typing import Dict, Any
 from sqlalchemy.sql.expression import text
-from sqlalchemy.engine.create import create_engine
+from sqlalchemy import create_engine
 from io import StringIO
+from urllib.parse import quote_plus
 
 logger = logging.getLogger(__name__)
 
@@ -25,17 +25,25 @@ def update_sensor_table(db_type: str, db_creds: Dict[str, Any], update_url: str)
         # psycopg2 uses 'dbname' not 'database'
         db_creds['dbname'] = db_creds.pop('database', None) 
         
-        url = f"postgresql+psycopg2://{db_creds['user']}:{db_creds['password']}@{db_creds['host']}:{db_creds['port']}/{db_creds['dbname']}"
-        engine = create_engine(url)
+        user = quote_plus(db_creds['user'])
+        password = quote_plus(db_creds['password'])
+        host = db_creds['host']
+        port = db_creds['port']
+        dbname = db_creds['dbname']
+
+        engine = create_engine(f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{dbname}")
     except Exception as e:
         logger.error(f"Failed to create SQLAlchemy engine: {e}", exc_info=True)
         return
 
     # 2. Get station list from the 'stations' table
     try:
+        # with engine.connect() as conn:
+        #     raw_conn = conn.connection
         stations_db = pd.read_sql('select code, latitude, longitude from stations', con=engine)
     except Exception as e:
         logger.error(f"Failed to read 'stations' table: {e}. Is table missing?")
+        engine.dispose()
         return
 
     # 3. Loop, scrape, and build the DataFrame
@@ -73,6 +81,7 @@ def update_sensor_table(db_type: str, db_creds: Dict[str, Any], update_url: str)
         return
 
     sensor_df = sensor_df[sensor_df.sensor != "xxx"] # Remove unavailable
+    sensor_df = sensor_df.drop_duplicates()
     
     logger.info(f"Replacing 'stations_sensor' table with {len(sensor_df)} new entries...")
     
@@ -86,15 +95,17 @@ def update_sensor_table(db_type: str, db_creds: Dict[str, Any], update_url: str)
             logger.debug("Truncating 'stations_sensor' table...")
             conn.execute(text("TRUNCATE TABLE stations_sensor;"))
             
-            # 2. Append the new data to the now-empty table.
-            logger.debug("Appending new data...")
-            sensor_df.to_sql(
-                'stations_sensor',
-                con=conn,
-                if_exists='append', 
-                index=False,
-                method=None
-            )
+        # 2. Append the new data to the now-empty table.
+        logger.debug("Appending new data...")
+        # with engine.connect() as conn:
+            # raw_conn = conn.connection
+        sensor_df.to_sql(
+            'stations_sensor',
+            con=engine,
+            if_exists='append', 
+            index=False,
+            # method='multi'
+        )
         logger.info("Successfully replaced 'stations_sensor' data.")
     
     except Exception as e:

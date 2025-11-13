@@ -22,44 +22,64 @@ class QCRepository:
         # It now aggregates both channel_prefixes (BH,HH) and
         # channel_components (E,N,Z).
         station_tuple_base_cte = """
-            WITH distinct_channels AS (
+            WITH distinct_channels_prefixes AS (
+                -- 1. Find all *unique* channel prefixes and their sort order
                 SELECT DISTINCT 
                     code, 
                     location, 
                     SUBSTRING(channel, 1, 2) AS channel_prefix,
-                    SUBSTRING(channel, 3, 1) AS channel_component,
                     CASE SUBSTRING(channel, 1, 2) 
                         WHEN 'SH' THEN 1 WHEN 'BH' THEN 2 
                         WHEN 'HH' THEN 3 WHEN 'HN' THEN 4 
                         ELSE 5 
                     END AS sort_order 
                 FROM stations_sensor
-            ), 
-            aggregated_channels AS (
-                SELECT 
-                    code, 
-                    location, 
-                    {agg_function_prefix} AS channel_prefixes,
+            ),
+            distinct_channel_components AS (
+                -- 2. Find all *unique* channel components
+                SELECT DISTINCT
+                    code,
+                    location,
+                    SUBSTRING(channel, 3, 1) AS channel_component
+                FROM stations_sensor
+            ),
+            aggregated_prefixes AS (
+                -- 3. Aggregate the unique prefixes, *now* we can ORDER BY sort_order
+                SELECT
+                    code,
+                    location,
+                    {agg_function_prefix} AS channel_prefixes
+                FROM distinct_channels_prefixes
+                GROUP BY code, location
+            ),
+            aggregated_components AS (
+                -- 4. Aggregate the unique components
+                SELECT
+                    code,
+                    location,
                     {agg_function_comp} AS channel_components
-                FROM distinct_channels 
+                FROM distinct_channel_components
                 GROUP BY code, location
             )
+            -- 5. Join all the results
             SELECT 
                 s.network, s.code, ac.location, s.network_group, 
-                ac.channel_prefixes,
+                ap.channel_prefixes,
                 ac.channel_components
             FROM stations AS s 
-            JOIN aggregated_channels AS ac ON s.code = ac.code
+            LEFT JOIN aggregated_prefixes AS ap ON s.code = ap.code AND s.location = ap.location
+            LEFT JOIN aggregated_components AS ac ON s.code = ac.code AND s.location = ac.location
         """
         
         # SQL dialects handle string aggregation differently.
         mysql_cte = station_tuple_base_cte.format(
-            agg_function_prefix="GROUP_CONCAT(DISTINCT channel_prefix ORDER BY sort_order SEPARATOR ',')", 
-            agg_function_comp="GROUP_CONCAT(DISTINCT channel_component SEPARATOR ',')"
+            agg_function_prefix="GROUP_CONCAT(channel_prefix ORDER BY sort_order SEPARATOR ',')", 
+            agg_function_comp="GROUP_CONCAT(channel_component SEPARATOR ',')"
         )
+        # This new format is now valid for PostgreSQL
         postgresql_cte = station_tuple_base_cte.format(
-            agg_function_prefix="STRING_AGG(DISTINCT channel_prefix, ',' ORDER BY sort_order)", 
-            agg_function_comp="STRING_AGG(DISTINCT channel_component, ',')"
+            agg_function_prefix="STRING_AGG(channel_prefix, ',' ORDER BY sort_order)", 
+            agg_function_comp="STRING_AGG(channel_component, ',')"
         )
 
         queries = {

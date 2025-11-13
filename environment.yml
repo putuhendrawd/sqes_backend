@@ -10,12 +10,12 @@ dependencies:
   # --- Scientific & Data ---
   # obspy is the main dependency for all seismology
   - obspy
-  - pandas
+  - pandas=2.0.3
   - numpy
   - scipy
   - matplotlib
   - requests
-  - sqlalchemy
+  - sqlalchemy=1.4.51
   - tqdm
   - lxml
 
