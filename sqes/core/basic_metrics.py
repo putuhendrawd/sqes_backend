@@ -278,13 +278,13 @@ def process_basic_metrics(files, data: Stream, day_start_time: UTCDateTime, day_
     
     # 4. Return all metrics
     final_metrics = {
-        'rms': str(round(rms,2)),
-        'ampmax': str(round(ampmax,2)),
-        'ampmin': str(round(ampmin,2)),
-        'ratioamp': str(round(ratioamp,2)),
-        'psdata': str(round(psdata,2)),
-        'ngap': str(round(ngap,2)),
-        'nover': str(round(nover,2)),
-        'num_spikes': str(round(num_spikes,2))
+        'rms': rms,
+        # 'ampmax': ampmax,
+        # 'ampmin': ampmin,
+        'ratioamp': ratioamp,
+        'psdata': psdata,
+        'ngap': ngap,
+        'nover': nover,
+        'num_spikes': num_spikes
     }
     return final_metrics
