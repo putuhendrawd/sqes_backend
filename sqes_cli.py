@@ -38,7 +38,7 @@ Examples:
     )
     
     # --- Date Arguments (Mutually Exclusive) ---
-    date_group = parser.add_mutually_exclusive_group(required=True)
+    date_group = parser.add_mutually_exclusive_group()
     date_group.add_argument(
         "-d", "--date",
         metavar="YYYYMMDD",
@@ -96,6 +96,12 @@ Examples:
         help="Skip the automatic update of the 'stations_sensor' table from the sensor_update_url."
     )
 
+    parser.add_argument(
+        "--check-config",
+        action="store_true",
+        help="Check all configuration, test connection, and exit."
+    )
+
     return parser
 
 # --- Main Execution ---
@@ -104,13 +110,29 @@ if __name__ == "__main__":
     parser = _setup_arguments()
     args = parser.parse_args()
     
-    if not args.date and not args.date_range:
+    if not args.date and not args.date_range and not args.check_config:
         parser.print_help()
         sys.exit(0)
 
     # 1. Setup Logging
     log_level = setup_main_logging(args.verbose, log_dir="logs")
     
+    if args.check_config:
+        logger.info("Running configuration and connection check...")
+        try:
+            from sqes.services.health_check import check_configurations
+            all_ok = check_configurations()
+            
+            if all_ok:
+                logger.info("--- ✅ All checks passed ---")
+                sys.exit(0)
+            else:
+                logger.error("--- ❌ One or more checks FAILED ---")
+                sys.exit(1)
+        except Exception as e:
+            logger.critical(f"A fatal error occurred during config check: {e}", exc_info=True)
+            sys.exit(1)
+
     logger.info(f"--- {sys.argv[0]} Starting ---")
     logger.info(f"Log level set to: {logging.getLevelName(log_level)}")
     
