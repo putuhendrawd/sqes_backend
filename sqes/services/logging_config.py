@@ -42,7 +42,7 @@ def setup_main_logging(verbosity_level: int, log_date_str: str, log_dir: str = "
     # Basic config for the root logger
     logging.basicConfig(
         level=log_level,
-        format="[%(asctime)s] [%(name)-20s] [%(levelname)-8s] %(message)s",
+        format="[%(asctime)s] [%(name)-30s] [%(levelname)-8s] %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
         handlers=[
             logging.StreamHandler(sys.stdout), 
