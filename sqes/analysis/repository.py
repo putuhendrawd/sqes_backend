@@ -171,7 +171,7 @@ class QCRepository:
                     ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 'get_qc_details': "SELECT * FROM stations_qc_details WHERE date = %s AND code = %s",
-                'get_station_info': "SELECT code, location, network_group FROM stations WHERE code = %s",
+                'get_station_info': "SELECT network, code, location, network_group FROM stations WHERE code = %s",
                 'check_analysis': "SELECT * FROM stations_data_quality WHERE date = %s AND code = %s",
                 'delete_analysis': "DELETE FROM stations_data_quality WHERE date = %s AND code = %s",
                 'insert_analysis': """
@@ -302,7 +302,7 @@ class QCRepository:
         """Inserts the final analysis result."""
         query = self._get_query('insert_analysis')
         
-        ket_str = 'N/A'
+        ket_str = ''
         if isinstance(details, list) and details:
             ket_str = ', '.join(map(str, details))
             

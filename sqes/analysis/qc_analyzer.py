@@ -52,8 +52,9 @@ def run_qc_analysis(repo: QCRepository, db_type: str, tanggal: str, station_code
 
     # This loop will only run once, but it's an easy way to unpack the data
     for sta in station_info:
-        kode = sta[0]
-        tipe = sta[2]
+        network = sta[0]
+        kode = sta[1]
+        tipe = sta[3]
 
         # 3. Get all QC details for this station and day
         dataqc = repo.get_qc_details_for_station(tanggal, kode)
@@ -161,7 +162,7 @@ def run_qc_analysis(repo: QCRepository, db_type: str, tanggal: str, station_code
             tipe, 
             ket
         )
-        logger.info(f"<{tipe}> {kode} QC ANALYSIS FINISH (Score: {avg_percqc:.2f})")
+        logger.info(f"{network}.{kode} ({tipe}) QC ANALYSIS FINISH (Score: {avg_percqc:.2f})")
         time.sleep(0.5)
 
     time.sleep(0.5)
