@@ -27,14 +27,14 @@ def setup_main_logging(verbosity_level: int, log_date_str: str, log_dir: str = "
     # --- THIS IS THE NEW FILE NAMING LOGIC ---
     
     # 1. Create the base log name
-    base_log_name = f"sqes_{log_date_str}.log"
+    base_log_name = f"{log_date_str}.log"
     log_file_path = os.path.join(log_dir, base_log_name)
     
     # 2. Check for conflicts and append (1), (2), etc.
     counter = 1
     while os.path.exists(log_file_path):
         # File exists, create a new name, e.g., "sqes_20230101(1).log"
-        log_name_with_counter = f"sqes_{log_date_str}({counter}).log"
+        log_name_with_counter = f"{log_date_str}({counter}).log"
         log_file_path = os.path.join(log_dir, log_name_with_counter)
         counter += 1
     # --- END NEW LOGIC ---
