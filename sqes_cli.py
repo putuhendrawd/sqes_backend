@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import sys
 import logging
 import argparse
@@ -83,7 +84,7 @@ Examples:
     parser.add_argument(
         "--version",
         action="version",
-        version=f"%(prog)s {__version__}",  # This will print "sqes_cli.py 1.0.0"
+        version=f"%(prog)s {__version__}", 
         help="Show the program's version number and exit"
     )
 
