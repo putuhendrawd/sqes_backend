@@ -251,7 +251,7 @@ def _calculate_ratioamp(ampmin, ampmax):
     
     return min(ratio, 99999.0)
 
-def process_basic_metrics(files, data: Stream, day_start_time: UTCDateTime, day_end_time: UTCDateTime, spike_method: str = 'fast'):
+def process_basic_metrics(data: Stream, day_start_time: UTCDateTime, day_end_time: UTCDateTime, spike_method: str = 'fast'):
     """
     Main function to calculate all basic metrics from a stream.
     Now calculates ratioamp internally.

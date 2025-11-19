@@ -196,7 +196,6 @@ def process_station_data(sta_tuple,
             spike_method = basic_config.get('spike_method', 'fast').lower()
 
             metrics = basic_metrics.process_basic_metrics(
-                mseed_naming_code, 
                 sig, 
                 time0, 
                 time1,
