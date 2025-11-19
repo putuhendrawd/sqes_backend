@@ -66,9 +66,14 @@ Examples:
 
     # --- Other Optional Flags ---
     parser.add_argument(
-        "-n", "--npz",
+        "--npz",
         action="store_true",
         help="Save PPSD matrix parameters as .npz files"
+    )
+    parser.add_argument(
+        "--mseed",
+        action="store_true",
+        help="Save the downloaded waveform data as MiniSEED files."
     )
     parser.add_argument(
         "-f", "--flush",
@@ -128,6 +133,11 @@ if __name__ == "__main__":
         log_level = setup_main_logging(args.verbose+1, log_date_str, log_dir="logs")   
     else:
         log_level = setup_main_logging(args.verbose, log_date_str, log_dir="logs")
+    
+    # Log the start banner and the arguments immediately
+    logger.info(f"--- {sys.argv[0]} Starting ---")
+    logger.info(f"Arguments: {vars(args)}")
+    logger.info(f"Log level set to: {logging.getLevelName(log_level)}")
     
     if args.check_config:
         logger.info("Running configuration and connection check...")
@@ -212,6 +222,7 @@ if __name__ == "__main__":
             end_date_str=end_date_str,
             stations=args.stations,
             npz=args.npz,
+            mseed=args.mseed,
             flush=args.flush,
             log_level=log_level,
             basic_config=basic_config

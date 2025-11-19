@@ -25,7 +25,8 @@ def process_station_data(sta_tuple,
                          db_credentials: dict, 
                          basic_config: dict, 
                          output_paths: dict, 
-                         pdf_trigger: bool, 
+                         pdf_trigger: bool,
+                         mseed_trigger: bool, 
                          log_level: int):
     """
     This is the main worker function that runs in a separate process.
@@ -179,7 +180,8 @@ def process_station_data(sta_tuple,
             signal.alarm(180) # 3 min timeout
             cha = tr.stats.channel
             mseed_naming_code = f"{outputmseed}/{kode}_{cha[-1]}.mseed"
-            sig.write(mseed_naming_code)
+            if mseed_trigger:
+                sig.write(mseed_naming_code)
             sig.plot(outfile=f"{outputsignal}/{kode}_{cha[-1]}_signal.png")
             signal.alarm(0)
         except Exception as e:

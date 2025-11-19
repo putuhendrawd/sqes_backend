@@ -70,7 +70,7 @@ def _processes_round(x, base=2):
 
 def run_processing_workflow(start_date_str: str, end_date_str: str, 
                             stations: Optional[list], npz: bool, 
-                            flush: bool, log_level: int,
+                            mseed: bool, flush: bool, log_level: int,
                             basic_config: Dict[str, Any]):
     """
     Orchestrates processing for all or specific stations over a date range.
@@ -109,6 +109,7 @@ def run_processing_workflow(start_date_str: str, end_date_str: str,
             _run_single_day(
                 date_str=date_str,
                 npz=npz,
+                mseed=mseed,
                 flush=do_flush, 
                 log_level=log_level,
                 stations=stations,
@@ -124,7 +125,7 @@ def run_processing_workflow(start_date_str: str, end_date_str: str,
 
 # --- Internal Daily Processor ---
 
-def _run_single_day(date_str: str, npz: bool, flush: bool, 
+def _run_single_day(date_str: str, npz: bool, flush: bool, mseed: bool,
                     log_level: int, basic_config: Dict[str, Any],
                     stations: Optional[list] = None):
     """
@@ -213,6 +214,7 @@ def _run_single_day(date_str: str, npz: bool, flush: bool,
                 basic_config=basic_config,
                 output_paths=output_paths,
                 pdf_trigger=npz,
+                mseed_trigger=mseed,
                 log_level=log_level
             )
             with multiprocessing.Pool(processes=processes_req) as pool:
