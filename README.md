@@ -261,6 +261,9 @@ chmod +x sqes_cli.py
 # Save additional outputs
 ./sqes_cli.py --date 20230101 --ppsd --mseed
 
+# Update sensor metadata only (no data processing)
+./sqes_cli.py --sensor-update
+
 # Flush existing data before processing
 ./sqes_cli.py --date 20230101 --flush
 
@@ -306,6 +309,21 @@ chmod +x sqes_cli.py
 **Reprocess a day (flush old data first):**
 ```bash
 ./sqes_cli.py --date 20231215 --flush -v
+```
+
+**Process with sensor metadata update:**
+```bash
+./sqes_cli.py --date 20231215 --sensor-update -v
+```
+
+**Save waveforms and PPSD matrices:**
+```bash
+./sqes_cli.py --date 20231215 --mseed --ppsd -v
+```
+
+**Update sensor metadata only (no processing):**
+```bash
+./sqes_cli.py --sensor-update
 ```
 
 ---
@@ -485,11 +503,11 @@ psql -h 127.0.0.1 -U your_db_user -d your_db_name
 **Missing data:**
 - Check if station has data for the requested date
 - Verify inventory source is correct
-- Use `--sensor-update` to update metadata with data from sensor_update_url
+- Ensure `--sensor-update` is used if metadata update is needed
 
 ---
 
-## 📞 Support
+## 📞 Support 
 
 For issues, questions, or contributions:
 - Open an issue on GitHub
@@ -497,4 +515,4 @@ For issues, questions, or contributions:
 
 ---
 
-**SQES** - Automated Seismic Quality Evaluation Systemfor Better Data Quality Monitoring
+**SQES** - Automated Seismic Quality Evaluation System for Better Data Quality Monitoring

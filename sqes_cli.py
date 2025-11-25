@@ -36,6 +36,9 @@ Examples:
   # Run a single day and update the sensor table
   ./sqes_cli.py --date 20230101 --sensor-update
   
+  # Run only sensor update (no date processing)
+  ./sqes_cli.py --sensor-update
+  
   # Run single day with mseed and npz saved
   ./sqes_cli.py --date 20230101 --mseed --ppsd
 """
@@ -119,7 +122,7 @@ if __name__ == "__main__":
     parser = _setup_arguments()
     args = parser.parse_args()
     
-    if not args.date and not args.date_range and not args.check_config:
+    if not args.date and not args.date_range and not args.check_config and not args.sensor_update:
         parser.print_help()
         sys.exit(0)
 
@@ -198,6 +201,12 @@ if __name__ == "__main__":
         logger.info("Database is disabled, skipping sensor update.")
     else:
         logger.info("--sensor-update not specified, skipping sensor update.")
+
+    # If only sensor update was requested (no date processing), exit here
+    if args.sensor_update and not args.date and not args.date_range:
+        logger.info("Sensor update completed. No date processing requested. Exiting.")
+        logger.info(f"--- {sys.argv[0]} Finished ---")
+        sys.exit(0)
 
     # 4. Validate and Parse Arguments
     if args.flush and args.date_range:
