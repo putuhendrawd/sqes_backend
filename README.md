@@ -334,8 +334,8 @@ SQES computes a weighted quality score (0-100%) based on the following metrics:
 | **Gaps** | 2.5% | Number of data gaps |
 | **Overlaps** | 2.5% | Number of data overlaps |
 | **Noise Level** | 30% | Percentage within Peterson noise models |
-| **DC Level** | 12.5% | DC offset stability |
-| **Dead Channel** | 12.5% | GSN dead channel detection |
+| **Dead Channel Linear** | 12.5% | Linear dead channel detection |
+| **Dead Channel GSN** | 12.5% | GSN dead channel detection |
 
 ### Quality Classification
 
@@ -363,13 +363,13 @@ grade = 100.0 - (15.0 * (parameter - limit) / margin)
 
 ### Database Tables
 
-**`qc_detail`** - Raw quality metrics per component:
+**`stations_qc_details`** - Raw quality metrics per component:
 - Station code, date, component (E/N/Z)
 - RMS, amplitude ratio, availability
 - Gap/overlap counts, spike counts
 - Noise percentages, DC levels
 
-**`qc_analysis`** - Final quality scores:
+**`stations_data_quality`** - Final quality scores:
 - Station code, date
 - Quality score (0-100%)
 - Classification (Baik/Cukup Baik/Buruk/Mati)
