@@ -66,7 +66,7 @@ Examples:
 
     # --- Other Optional Flags ---
     parser.add_argument(
-        "--npz",
+        "--ppsd",
         action="store_true",
         help="Save PPSD matrix parameters as .npz files"
     )
@@ -172,14 +172,14 @@ if __name__ == "__main__":
     if use_db and not args.skip_sensor_update:
         logger.info("Running sensor table update...")
         try:
-            from sqes.services import data_updater
+            from sqes.services import sensor_updater
             
             db_type = basic_config['use_database']
             db_creds = load_config(section=db_type)
             update_url = basic_config.get('sensor_update_url')
             
             if update_url:
-                data_updater.update_sensor_table(db_type, db_creds, update_url)
+                sensor_updater.update_sensor_table(db_type, db_creds, update_url)
                 logger.info("Sensor update complete.")
             else:
                 logger.warning("No 'sensor_update_url' in config. Skipping update.")

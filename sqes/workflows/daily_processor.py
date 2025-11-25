@@ -1,137 +1,42 @@
-import os
+"""Daily processing workflow for seismic stations."""
 import time
 import logging
 import multiprocessing
 from functools import partial
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, Optional, Dict
-from obspy import UTCDateTime
 
-from sqes.services.config_loader import load_config
 from sqes.services.db_pool import DBPool
-from sqes.services.file_system import create_directory
-from sqes.analysis.repository import QCRepository
-from sqes.analysis.worker import process_station_data
+from sqes.services.repository import QCRepository
+from sqes.analysis.station_processor import process_station_data
 from sqes.analysis import qc_analyzer
+from sqes.workflows.helpers import (
+    get_common_configs,
+    setup_paths_and_times,
+    get_output_paths,
+    calculate_process_count
+)
 
 logger = logging.getLogger(__name__)
 
-# --- Helper functions for workflows ---
 
-def _get_common_configs(basic_config):
-    """Loads all necessary configs."""
-    db_type = basic_config['use_database']
-    client_credentials = load_config(section='client')
-    db_credentials = load_config(section=db_type)
-    return basic_config, db_type, client_credentials, db_credentials
-
-def _setup_paths_and_times(date_str):
-    """Generates paths and time objects for a given date."""
-    wkt1 = time.strptime(date_str, "%Y%m%d")
-    time0 = UTCDateTime(date_str)
-    tgl = time0.strftime("%Y-%m-%d")
-    time1 = time0 + 86400
-    tahun = wkt1.tm_year
-    
-    return time0, time1, tgl, tahun
-
-def _get_output_paths(basic_config, tahun, tgl, date_str):
-    """Creates and returns a dictionary of output paths."""
-    outputPSD = os.path.join(basic_config['outputpsd'], str(tahun), date_str)
-    outputPDF = os.path.join(basic_config['outputpdf'], str(tgl))
-    outputsignal = os.path.join(basic_config['outputsignal'], str(tgl))
-    outputmseed = os.path.join(basic_config['outputmseed'], str(tgl))
-    
-    create_directory(outputsignal)
-    create_directory(outputPDF)
-    create_directory(outputmseed)
-    create_directory(outputPSD)
-    
-    return {
-        'outputPSD': outputPSD,
-        'outputPDF': outputPDF,
-        'outputsignal': outputsignal,
-        'outputmseed': outputmseed
-    }
-
-def _processes_round(x, base=2):
-    """Calculates the number of processes to use."""
-    min_value = 4
-    # Use max(1, ...) to avoid 0 CPUs on small machines
-    max_value = max(1, multiprocessing.cpu_count() // 3)
-    rounded_value = base * round(x / base)
-    
-    # Clamp the value between min and max
-    rounded = max(1, min(max_value, max(min_value, rounded_value)))
-    return rounded
-
-
-# --- Main Public Workflow ---
-
-def run_processing_workflow(start_date_str: str, end_date_str: str, 
-                            stations: Optional[list], npz: bool, 
-                            mseed: bool, flush: bool, log_level: int,
-                            basic_config: Dict[str, Any]):
-    """
-    Orchestrates processing for all or specific stations over a date range.
-    
-    This is the main entry point called by cli.py.
-    """
-    logger.info(f"--- Starting Main Workflow from {start_date_str} to {end_date_str} ---")
-    
-    try:
-        start_date = datetime.strptime(start_date_str, "%Y%m%d")
-        end_date = datetime.strptime(end_date_str, "%Y%m%d")
-        
-        if start_date > end_date:
-            logger.error("Start date must be before or the same as end date.")
-            return
-            
-    except ValueError as e:
-        logger.error(f"Invalid date format: {e}. Use YYYYMMDD.")
-        return
-        
-    # --- Date Loop ---
-    current_date = start_date
-    while current_date <= end_date:
-        date_str = current_date.strftime("%Y%m%d")
-        logger.info(f"==================================================")
-        logger.info(f"Processing date: {date_str}")
-        logger.info(f"==================================================")
-        
-        # Flush is only allowed if the user specified --flush AND
-        # it's a single-day run (start_date == end_date).
-        # cli.py already blocks this, but we double-check.
-        do_flush = (flush and (start_date == end_date))
-        
-        try:
-            # Call the internal single-day processor
-            _run_single_day(
-                date_str=date_str,
-                npz=npz,
-                mseed=mseed,
-                flush=do_flush, 
-                log_level=log_level,
-                stations=stations,
-                basic_config=basic_config 
-            )
-        except Exception as e:
-            logger.error(f"Failed to process {date_str}: {e}. Skipping to next date.", exc_info=True)
-            
-        current_date += timedelta(days=1)
-        
-    logger.info("--- Main Workflow Finished ---")
-
-
-# --- Internal Daily Processor ---
-
-def _run_single_day(date_str: str, npz: bool, flush: bool, mseed: bool,
+def run_single_day(date_str: str, npz: bool, flush: bool, mseed: bool,
                     log_level: int, basic_config: Dict[str, Any],
                     stations: Optional[list] = None):
     """
     Orchestrates the processing of stations for a single day.
+    
     If 'stations' is None, processes all stations.
     If 'stations' is a list, processes only those stations.
+    
+    Args:
+        date_str: Date string in YYYYMMDD format
+        npz: Whether to save PPSD matrices as NPZ files
+        flush: Whether to flush existing data before processing
+        mseed: Whether to save downloaded waveforms as MiniSEED
+        log_level: Logging level (INFO, DEBUG, etc.)
+        basic_config: Basic configuration dictionary
+        stations: Optional list of station codes to process
     """
     logger.info(f"--- Starting Daily Run for {date_str} ---")
     if stations:
@@ -140,9 +45,9 @@ def _run_single_day(date_str: str, npz: bool, flush: bool, mseed: bool,
     
     # --- 1. Setup ---
     try:
-        basic_config, db_type, client_creds, db_creds = _get_common_configs(basic_config)
-        time0, time1, tgl, tahun = _setup_paths_and_times(date_str)
-        output_paths = _get_output_paths(basic_config, tahun, tgl, date_str)
+        basic_config, db_type, client_creds, db_creds = get_common_configs(basic_config)
+        time0, time1, tgl, tahun = setup_paths_and_times(date_str)
+        output_paths = get_output_paths(basic_config, tahun, tgl, date_str)
     except Exception as e:
         logger.error(f"Failed to setup workflow for {date_str}: {e}", exc_info=True)
         return
@@ -201,7 +106,7 @@ def _run_single_day(date_str: str, npz: bool, flush: bool, mseed: bool,
             if basic_config.get('cpu_number_used'):
                 processes_req = int(basic_config['cpu_number_used'])
             else:
-                processes_req = _processes_round(len(data) // 35)
+                processes_req = calculate_process_count(len(data) // 35)
             logger.info(f"Starting multiprocessing pool with {processes_req} workers.")
             
             del(db_pool) # Close main pool before forking

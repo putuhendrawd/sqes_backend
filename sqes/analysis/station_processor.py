@@ -7,7 +7,7 @@ from obspy.clients.fdsn import Client as FDSNClient
 from obspy.clients.filesystem.sds import Client as SDSClient
 from sqes.services.db_pool import DBPool
 from sqes.services.logging_config import setup_worker_logging
-from sqes.analysis.repository import QCRepository
+from sqes.services.repository import QCRepository
 from sqes.analysis import qc_analyzer
 from sqes.core import basic_metrics, ppsd_metrics, models, utils
 from sqes.clients import fdsn, sds, local

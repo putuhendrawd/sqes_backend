@@ -2,7 +2,7 @@
 import time
 import logging
 import numpy as np
-from sqes.analysis.repository import QCRepository
+from sqes.services.repository import QCRepository
 
 logger = logging.getLogger(__name__)
 
