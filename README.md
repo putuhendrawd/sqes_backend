@@ -269,7 +269,7 @@ chmod +x sqes_cli.py
 ./sqes_cli.py --date 20230101 -vv     # DEBUG level
 
 # Save additional outputs
-./sqes_cli.py --date 20230101 --npz --mseed
+./sqes_cli.py --date 20230101 --ppsd --mseed
 
 # Flush existing data before processing
 ./sqes_cli.py --date 20230101 --flush
@@ -288,7 +288,7 @@ chmod +x sqes_cli.py
 | `-d, --date YYYYMMDD` | Process a single date |
 | `-r, --date-range START END` | Process a date range (inclusive) |
 | `-s, --station STA [STA ...]` | Process specific station codes |
-| `--npz` | Save PPSD matrices as `.npz` files |
+| `--ppsd` | Save PPSD matrices as `.npz` files |
 | `--mseed` | Save downloaded waveforms as MiniSEED |
 | `-f, --flush` | Flush existing data (only with `--date`) |
 | `-v, --verbose` | Increase logging verbosity (`-v` = INFO, `-vv` = DEBUG) |
@@ -310,7 +310,7 @@ chmod +x sqes_cli.py
 
 **Full processing with all outputs:**
 ```bash
-./sqes_cli.py --date 20231215 --npz --mseed -vv
+./sqes_cli.py --date 20231215 --ppsd --mseed -vv
 ```
 
 **Reprocess a day (flush old data first):**
@@ -381,7 +381,7 @@ grade = 100.0 - (15.0 * (parameter - limit) / margin)
 
 ### File Outputs
 
-**PPSD NPZ files** (`--npz`):
+**PPSD NPZ files** (`--ppsd`):
 ```
 /opt/sqes_output/psd_npz/2023/20231215/BBJI_BHE_20231215.npz
 ```
@@ -458,13 +458,13 @@ pytest tests/test_basic_metrics.py
 
 ## 📝 License
 
-[Specify your license here]
+
 
 ---
 
 ## 👥 Contributors
 
-[List contributors or link to CONTRIBUTORS.md]
+
 
 ---
 
@@ -501,8 +501,8 @@ psql -h 127.0.0.1 -U your_db_user -d your_db_name
 
 For issues, questions, or contributions:
 - Open an issue on GitHub
-- Contact: [your-email@example.com]
+- Contact: [putu.hendra@bmkg.go.id]
 
 ---
 
-**SQES** - Automated Seismic Quality Evaluation for Better Network Monitoring
+**SQES** - Automated Seismic Quality Evaluation Systemfor Better Data Quality Monitoring
