@@ -20,7 +20,7 @@ from sqes.workflows.helpers import (
 logger = logging.getLogger(__name__)
 
 
-def run_single_day(date_str: str, npz: bool, flush: bool, mseed: bool,
+def run_single_day(date_str: str, ppsd: bool, flush: bool, mseed: bool,
                     log_level: int, basic_config: Dict[str, Any],
                     stations: Optional[list] = None):
     """
@@ -31,7 +31,7 @@ def run_single_day(date_str: str, npz: bool, flush: bool, mseed: bool,
     
     Args:
         date_str: Date string in YYYYMMDD format
-        npz: Whether to save PPSD matrices as NPZ files
+        ppsd: Whether to save PPSD matrices as NPZ files
         flush: Whether to flush existing data before processing
         mseed: Whether to save downloaded waveforms as MiniSEED
         log_level: Logging level (INFO, DEBUG, etc.)
@@ -118,7 +118,7 @@ def run_single_day(date_str: str, npz: bool, flush: bool, mseed: bool,
                 db_credentials=db_creds,
                 basic_config=basic_config,
                 output_paths=output_paths,
-                pdf_trigger=npz,
+                pdf_trigger=ppsd,
                 mseed_trigger=mseed,
                 log_level=log_level
             )

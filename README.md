@@ -84,7 +84,8 @@ sqes_backend/
 │   ├── core/                # Core computation modules
 │   │   ├── basic_metrics.py # RMS, gaps, spikes, availability
 │   │   ├── ppsd_metrics.py  # PPSD and noise model analysis
-│   │   └── models.py        # Peterson NHNM/NLNM models
+│   │   ├── models.py        # Peterson NHNM/NLNM models
+│   │   └── utils.py         # Utility functions
 │   ├── clients/             # Data source clients (FDSN, SDS)
 │   └── services/            # Infrastructure services
 │       ├── config_loader.py # Configuration management
@@ -92,7 +93,8 @@ sqes_backend/
 │       ├── repository.py    # Database CRUD operations
 │       ├── logging_config.py# Logging setup
 │       ├── sensor_updater.py# Sensor metadata updates
-│       └── health_check.py  # System health validation
+│       ├── health_check.py  # System health validation
+│       └── file_system.py   # File system operations
 ├── config/
 │   └── config.ini           # Main configuration file
 ├── logs/                    # Application logs
@@ -134,33 +136,21 @@ graph TD
 ### Prerequisites
 
 - **Python**: 3.10
-- **Conda** (recommended) or pip
+- **Conda** (recommended)
 - **Database**: PostgreSQL or MySQL server
 
 ### Using Conda (Recommended)
 
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone https://github.com/putuhendrawd/sqes_backend.git
 cd sqes_backend
 
 # Create conda environment
 conda env create -f environment.yml
 
 # Activate environment
-conda activate sqes_v3
-```
-
-### Using pip
-
-```bash
-# Create virtual environment
-python3 -m venv .venv_sqes
-source .venv_sqes/bin/activate
-
-# Install dependencies
-pip install obspy pandas numpy scipy matplotlib sqlalchemy \
-            psycopg2 mysql-connector-python requests lxml tqdm pytest
+conda activate sqes_backend
 ```
 
 ### Database Setup
@@ -274,8 +264,8 @@ chmod +x sqes_cli.py
 # Flush existing data before processing
 ./sqes_cli.py --date 20230101 --flush
 
-# Skip sensor metadata update
-./sqes_cli.py --date 20230101 --skip-sensor-update
+# Apply sensor metadata update
+./sqes_cli.py --date 20230101 --sensor-update
 
 # Check configuration and connections
 ./sqes_cli.py --check-config
@@ -292,7 +282,7 @@ chmod +x sqes_cli.py
 | `--mseed` | Save downloaded waveforms as MiniSEED |
 | `-f, --flush` | Flush existing data (only with `--date`) |
 | `-v, --verbose` | Increase logging verbosity (`-v` = INFO, `-vv` = DEBUG) |
-| `--skip-sensor-update` | Skip automatic sensor metadata update |
+| `--sensor-update` | Perform automatic sensor metadata update |
 | `--check-config` | Validate configuration and test connections |
 | `--version` | Show version and exit |
 
@@ -422,9 +412,11 @@ logs/sqes_20231215_debug.log  # If -vv is used
 - **`sqes/analysis/station_processor.py`**: Downloads waveforms and computes metrics
 - **`sqes/analysis/qc_analyzer.py`**: Calculates quality scores
 - **`sqes/services/repository.py`**: Database CRUD operations
+- **`sqes/services/file_system.py`**: File system operations
 - **`sqes/core/basic_metrics.py`**: RMS, gaps, spikes, availability
 - **`sqes/core/ppsd_metrics.py`**: PPSD and noise model calculations
 - **`sqes/core/models.py`**: Peterson NHNM/NLNM noise models
+- **`sqes/core/utils.py`**: Utility functions
 
 ### Running Tests
 
@@ -493,7 +485,7 @@ psql -h 127.0.0.1 -U your_db_user -d your_db_name
 **Missing data:**
 - Check if station has data for the requested date
 - Verify inventory source is correct
-- Use `--skip-sensor-update` if metadata scraping fails
+- Use `--sensor-update` to update metadata with data from sensor_update_url
 
 ---
 

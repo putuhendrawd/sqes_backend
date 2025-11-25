@@ -32,6 +32,12 @@ Examples:
   
   # Run a single day and flush the database
   ./sqes_cli.py --date 20230101 --flush
+
+  # Run a single day and update the sensor table
+  ./sqes_cli.py --date 20230101 --sensor-update
+  
+  # Run single day with mseed and npz saved
+  ./sqes_cli.py --date 20230101 --mseed --ppsd
 """
     )
     
@@ -94,9 +100,9 @@ Examples:
     )
 
     parser.add_argument(
-        "--skip-sensor-update",
+        "--sensor-update",
         action="store_true",
-        help="Skip the automatic update of the 'stations_sensor' table from the sensor_update_url."
+        help="Perform an automatic update of the 'stations_sensor' table from the sensor_update_url. (Default: skip update)"
     )
 
     parser.add_argument(
@@ -169,7 +175,7 @@ if __name__ == "__main__":
     use_db_config_value = str(basic_config.get('use_database', 'true')).lower()
     use_db = use_db_config_value not in ['false', 'no', '0']
     
-    if use_db and not args.skip_sensor_update:
+    if use_db and args.sensor_update:
         logger.info("Running sensor table update...")
         try:
             from sqes.services import sensor_updater
@@ -191,7 +197,7 @@ if __name__ == "__main__":
     elif not use_db:
         logger.info("Database is disabled, skipping sensor update.")
     else:
-        logger.info("User requested --skip-sensor-update.")
+        logger.info("--sensor-update not specified, skipping sensor update.")
 
     # 4. Validate and Parse Arguments
     if args.flush and args.date_range:

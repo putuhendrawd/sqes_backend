@@ -1,4 +1,4 @@
-name: sqes_v3
+name: sqes_backend
 channels:
   - conda-forge
   - defaults

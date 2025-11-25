@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 def run_processing_workflow(start_date_str: str, end_date_str: str, 
-                            stations: Optional[list], npz: bool, 
+                            stations: Optional[list], ppsd: bool, 
                             mseed: bool, flush: bool, log_level: int,
                             basic_config: Dict[str, Any]):
     """
@@ -21,7 +21,7 @@ def run_processing_workflow(start_date_str: str, end_date_str: str,
         start_date_str: Start date in YYYYMMDD format
         end_date_str: End date in YYYYMMDD format
         stations: Optional list of station codes to process (None = all stations)
-        npz: Whether to save PPSD matrices as NPZ files
+        ppsd: Whether to save PPSD matrices as NPZ files
         mseed: Whether to save downloaded waveforms as MiniSEED
         flush: Whether to flush existing data before processing
         log_level: Logging level (INFO, DEBUG, etc.)
@@ -58,7 +58,7 @@ def run_processing_workflow(start_date_str: str, end_date_str: str,
             # Call the internal single-day processor
             run_single_day(
                 date_str=date_str,
-                npz=npz,
+                ppsd=ppsd,
                 mseed=mseed,
                 flush=do_flush, 
                 log_level=log_level,
