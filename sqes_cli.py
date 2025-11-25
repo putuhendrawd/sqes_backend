@@ -221,7 +221,7 @@ if __name__ == "__main__":
             start_date_str=start_date_str,
             end_date_str=end_date_str,
             stations=args.stations,
-            npz=args.npz,
+            npz=args.ppsd,
             mseed=args.mseed,
             flush=args.flush,
             log_level=log_level,

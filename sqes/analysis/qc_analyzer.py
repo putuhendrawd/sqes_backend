@@ -1,4 +1,4 @@
-# sqes/processing/qc_analyzer.py
+# sqes/analysis/qc_analyzer.py
 import time
 import logging
 import numpy as np
