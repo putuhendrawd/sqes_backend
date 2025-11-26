@@ -1,7 +1,6 @@
 import logging
 import requests
 import pandas as pd
-from tqdm.auto import tqdm
 from typing import Dict, Any
 from sqlalchemy import create_engine, text
 from io import StringIO
@@ -46,11 +45,17 @@ def update_sensor_table(db_type: str, db_creds: Dict[str, Any], update_url: str)
 
     # 3. Loop, scrape, and build the DataFrame
     sensor_df = pd.DataFrame(columns=['code','location','channel','sensor'])
-    loop_obj = tqdm(stations_db['code'].tolist(), desc="Updating sensors")
+    total_stations = len(stations_db['code'].tolist())
+    logger.info(f"Starting sensor metadata update for {total_stations} stations...")
     
-    for station in loop_obj:
+    success_count = 0
+    error_count = 0
+    
+    for idx, station in enumerate(stations_db['code'].tolist(), 1):
         try:
-            loop_obj.set_description(f"Processing {station}")
+            # Log progress every 10 stations
+            if idx % 10 == 0 or idx == 1:
+                logger.info(f"Progress: {idx}/{total_stations} stations processed ({success_count} successful, {error_count} errors)")
             
             url = update_url.format(station_code=station)
             html_ = requests.get(url, timeout=10).text
@@ -67,10 +72,14 @@ def update_sensor_table(db_type: str, db_creds: Dict[str, Any], update_url: str)
             
             sensor_df = pd.concat([sensor_df,temp_df], ignore_index=True)
             del(temp_df)
+            success_count += 1
             
         except Exception as e:
             logger.warning(f"Error processing station {station}: {e}. Skipping.")
+            error_count += 1
             continue
+    
+    logger.info(f"Sensor scraping complete: {success_count} successful, {error_count} errors")
 
     # 4. Clean and write to database
     if sensor_df.empty:
