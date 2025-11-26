@@ -375,7 +375,8 @@ grade = 100.0 - (15.0 * (parameter - limit) / margin)
 - Station code, date, component (E/N/Z)
 - RMS, amplitude ratio, availability
 - Gap/overlap counts, spike counts
-- Noise percentages, DC levels
+- Noise percentages (above NHNM, below NLNM), DC levels (Linear, GSN)
+- PSD inside noise model over frequency range (0.05-5 Hz, 5-20 Hz, 20-100 Hz)
 
 **`stations_data_quality`** - Final quality scores:
 - Station code, date
@@ -391,22 +392,22 @@ grade = 100.0 - (15.0 * (parameter - limit) / margin)
 
 **PPSD NPZ files** (`--ppsd`):
 ```
-/opt/sqes_output/psd_npz/2023/20231215/BBJI_BHE_20231215.npz
+/opt/sqes_output/psd_npz/2023/20231215_IA.BBJI.00.BHE.npz
 ```
 
-**PDF Plots** (auto-generated):
+**PSD Plots** (auto-generated, PNG format):
 ```
-/opt/sqes_output/pdf_plots/2023/20231215/BBJI_BHE_psd.pdf
+/opt/sqes_output/pdf_plots/2023-12-15/BBJI_E_PDF.png
 ```
 
 **Signal Plots** (auto-generated):
 ```
-/opt/sqes_output/signal_plots/2023/20231215/BBJI_BHE_signal.png
+/opt/sqes_output/signal_plots/2023-12-15/BBJI_E_signal.png
 ```
 
 **MiniSEED Files** (`--mseed`):
 ```
-/opt/sqes_output/mseed_files/2023/20231215/BBJI_BHE.mseed
+/opt/sqes_output/mseed_files/2023-12-15/BBJI_E.mseed
 ```
 
 ### Logs

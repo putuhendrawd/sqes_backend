@@ -39,7 +39,7 @@ class ObsPyWarningFilter(logging.Filter):
         
         return True  # Allow all other messages
 
-def setup_main_logging(verbosity_level: int, log_date_str: str, log_dir: str = "logs"):
+def setup_main_logging(verbosity_level: int, log_date_str: str, log_dir: str = "logs/log"):
     """
     Configures the root logger for the main process.
     Logs to both the console and a date-stamped file.
