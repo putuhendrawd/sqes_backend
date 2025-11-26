@@ -58,11 +58,12 @@ This system is designed for seismology networks that need continuous, automated 
 
 ### Output Options
 
-- 📊 **PPSD matrices** saved as `.npz` files (optional)
 - 📈 **PDF plots** of power spectral density
 - 📉 **Signal plots** for visual inspection
-- 💾 **MiniSEED files** of downloaded waveforms (optional)
 - 🗄️ **Database records** for historical analysis and trending
+- 📊 **PPSD matrices** saved as `.npz` files (optional)
+- 💾 **MiniSEED files** of downloaded waveforms (optional)
+
 
 ---
 
@@ -157,16 +158,16 @@ conda activate sqes_backend
 
 **PostgreSQL:**
 ```sql
-CREATE DATABASE your_db_name;
+CREATE DATABASE sqes;
 CREATE USER your_db_user WITH PASSWORD 'your_password';
-GRANT ALL PRIVILEGES ON DATABASE your_db_name TO your_db_user;
+GRANT ALL PRIVILEGES ON DATABASE sqes TO your_db_user;
 ```
 
 **MySQL:**
 ```sql
-CREATE DATABASE your_db_name;
+CREATE DATABASE sqes;
 CREATE USER 'your_db_user'@'localhost' IDENTIFIED BY 'your_password';
-GRANT ALL PRIVILEGES ON your_db_name.* TO 'your_db_user'@'localhost';
+GRANT ALL PRIVILEGES ON sqes.* TO 'your_db_user'@'localhost';
 ```
 
 ---
@@ -200,10 +201,10 @@ inventory_source = fdsn    # or 'local'
 inventory_path = /path/to/inventory/folder  # Only if inventory_source = local
 
 # Output directories
-outputpsd = /opt/sqes_output/psd_npz
-outputpdf = /opt/sqes_output/pdf_plots
-outputsignal = /opt/sqes_output/signal_plots
-outputmseed = /opt/sqes_output/mseed_files
+outputpsd = /your/directory/path/sqes_output/psd_npz
+outputpdf = /your/directory/path/sqes_output/pdf_plots
+outputsignal = /your/directory/path/sqes_output/signal_plots
+outputmseed = /your/directory/path/sqes_output/mseed_files
 
 # Performance
 cpu_number_used = 16       # Number of parallel processes
@@ -244,34 +245,6 @@ pool_size = 32
 ```bash
 # Make the CLI executable
 chmod +x sqes_cli.py
-
-# Process a single day (all stations)
-./sqes_cli.py --date 20230101
-
-# Process a date range
-./sqes_cli.py --date-range 20230101 20230107
-
-# Process specific stations
-./sqes_cli.py --date 20230101 -s BBJI GSI TNTI
-
-# Process with verbose logging
-./sqes_cli.py --date 20230101 -v      # INFO level
-./sqes_cli.py --date 20230101 -vv     # DEBUG level
-
-# Save additional outputs
-./sqes_cli.py --date 20230101 --ppsd --mseed
-
-# Update sensor metadata only (no data processing)
-./sqes_cli.py --sensor-update
-
-# Flush existing data before processing
-./sqes_cli.py --date 20230101 --flush
-
-# Apply sensor metadata update
-./sqes_cli.py --date 20230101 --sensor-update
-
-# Check configuration and connections
-./sqes_cli.py --check-config
 ```
 
 ### Command-Line Options
@@ -325,6 +298,56 @@ chmod +x sqes_cli.py
 ```bash
 ./sqes_cli.py --sensor-update
 ```
+
+### Automated Daily Processing
+
+For production deployments, you can automate daily processing using a cron job. The included `scripts/daily_run.sh` script automatically processes the previous day's data (UTC).
+
+#### Features
+
+- Automatically processes "yesterday's" data at a scheduled time
+- Auto-detects project directory and Python environment
+- Logs application output to `logs/log/YYYYMMDD.log`
+- Logs cron errors to `logs/error/cron_YYYYMMDD.err`
+- Includes sensor metadata updates
+
+#### Setup Cron Job
+
+1. **Make the script executable** (if not already):
+   ```bash
+   chmod +x scripts/daily_run.sh
+   ```
+
+2. **Edit your crontab**:
+   ```bash
+   crontab -e
+   ```
+
+3. **Add the following line** to run daily at 00:00 UTC:
+   ```bash
+   0 0 * * * /your/directory/path/sqes_backend/scripts/daily_run.sh
+   ```
+   
+   Or, if you want to run at 02:00 UTC:
+   ```bash
+   0 2 * * * /your/directory/path/sqes_backend/scripts/daily_run.sh
+   ```
+
+4. **Save and exit** the editor (in nano: `Ctrl+O`, `Enter`, `Ctrl+X`)
+
+#### Verify Cron Job
+
+Check that your cron job is installed:
+```bash
+crontab -l
+```
+
+#### Monitoring
+
+- **Application logs**: `logs/log/YYYYMMDD.log` - Contains all processing details
+- **Cron errors**: `logs/error/cron_YYYYMMDD.err` - Only contains startup/shell errors
+- **Check last run**: `ls -lt logs/log/ | head` - Shows most recent log files
+
 
 ---
 
@@ -392,22 +415,22 @@ grade = 100.0 - (15.0 * (parameter - limit) / margin)
 
 **PPSD NPZ files** (`--ppsd`):
 ```
-/opt/sqes_output/psd_npz/2023/20231215_IA.BBJI.00.BHE.npz
+/your/directory/path/sqes_output/psd_npz/2023/20231215_IA.BBJI.00.BHE.npz
 ```
 
 **PSD Plots** (auto-generated, PNG format):
 ```
-/opt/sqes_output/pdf_plots/2023-12-15/BBJI_E_PDF.png
+/your/directory/path/sqes_output/pdf_plots/2023-12-15/BBJI_E_PDF.png
 ```
 
 **Signal Plots** (auto-generated):
 ```
-/opt/sqes_output/signal_plots/2023-12-15/BBJI_E_signal.png
+/your/directory/path/sqes_output/signal_plots/2023-12-15/BBJI_E_signal.png
 ```
 
 **MiniSEED Files** (`--mseed`):
 ```
-/opt/sqes_output/mseed_files/2023-12-15/BBJI_E.mseed
+/your/directory/path/sqes_output/mseed_files/2023-12-15/BBJI_E.mseed
 ```
 
 ### Logs
@@ -489,7 +512,7 @@ pytest tests/test_basic_metrics.py
 ./sqes_cli.py --check-config
 
 # Verify database is running
-psql -h 127.0.0.1 -U your_db_user -d your_db_name
+psql -h 127.0.0.1 -U your_db_user -d sqes
 ```
 
 **FDSN download failures:**

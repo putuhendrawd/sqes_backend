@@ -1,24 +1,32 @@
---- sqes_v3_multiprocessing.py ---
-Verbose: True
-NPZ matrix saving: False
-running start at 2024-05-20 08:33:39.982158
-/var/www/html/dataqc/signal/2024-01-24 exists
-/var/www/html/dataqc/PDFimage/2024-01-24 exists
-/home/idripsensor/QCDATA/mseed/2024-01-24 exists
-/home/idripsensor/QCDATA/PSD/2024 exists
-client connected: True
-query: SELECT kode_sensor,sistem_sensor FROM tb_slmon WHERE kode_sensor NOT IN (SELECT kode FROM (SELECT DISTINCT kode, COUNT(kode) AS ccode FROM tb_qcdetail WHERE tanggal='2024-01-24' GROUP BY kode) AS o WHERE o.ccode = 3)
-[]
-number of stations to be processed: 0
-processes required: 4
-Data 2024-01-24 already complete
-Updating QC Data : 2024-01-24
-query: SELECT DISTINCT kode FROM tb_qcdetail WHERE tanggal='2024-01-24' AND kode NOT IN (SELECT DISTINCT kode_res FROM tb_qcres WHERE tanggal_res='2024-01-24')
-number of stations to be QC Analysis processed: 1
-[('KABKI',)]
-1. KABKI
-number of qcdata available: 0
-ready to fill database KABKI on 2024-01-24
-<ALOPTAMA2023> KABKI QC FINISH
-running end at 2024-05-20 08:33:53.086496
-sqes_v3_multiprocessing.py Running Complete (0:00:13.104338)
+[2024-12-15 00:00:15] [__main__                     ] [INFO    ] --- ./sqes_cli.py Starting ---
+[2024-12-15 00:00:15] [__main__                     ] [INFO    ] Arguments: {'date': '20241214', 'date_range': None, 'stations': None, 'ppsd': False, 'mseed': False, 'flush': False, 'verbose': 1, 'sensor_update': True, 'check_config': False}
+[2024-12-15 00:00:15] [__main__                     ] [INFO    ] Log level set to: INFO
+[2024-12-15 00:00:15] [__main__                     ] [INFO    ] --- ./sqes_cli.py Starting ---
+[2024-12-15 00:00:15] [__main__                     ] [INFO    ] Log level set to: INFO
+[2024-12-15 00:00:16] [sqes.services.config_loader  ] [INFO    ] Loading config section: basic
+[2024-12-15 00:00:16] [sqes.services.config_loader  ] [INFO    ] Loading config section: postgresql
+[2024-12-15 00:00:16] [__main__                     ] [INFO    ] Running sensor table update...
+[2024-12-15 00:00:17] [sqes.services.sensor_updater ] [INFO    ] Starting sensor metadata update...
+[2024-12-15 00:00:18] [sqes.services.sensor_updater ] [INFO    ] Updated 45 stations successfully
+[2024-12-15 00:00:18] [__main__                     ] [INFO    ] Sensor update complete.
+[2024-12-15 00:00:18] [__main__                     ] [INFO    ] Processing single date: 20241214
+[2024-12-15 00:00:18] [__main__                     ] [INFO    ] Processing all stations.
+[2024-12-15 00:00:19] [sqes.workflows.orchestrator  ] [INFO    ] Starting workflow for date range: 20241214 to 20241214
+[2024-12-15 00:00:19] [sqes.workflows.daily_processor] [INFO    ] --- Starting Daily Run for 20241214 ---
+[2024-12-15 00:00:20] [sqes.workflows.daily_processor] [INFO    ] Querying for all unprocessed stations...
+[2024-12-15 00:00:21] [sqes.workflows.daily_processor] [INFO    ] Found 38 stations to process.
+[2024-12-15 00:00:21] [sqes.workflows.daily_processor] [INFO    ] Starting multiprocessing pool with 16 workers.
+[2024-12-15 00:00:25] [BBJI                          ] [INFO    ] PROCESS START IA.BBJI (BB). Components: ['E', 'N', 'Z']
+[2024-12-15 00:00:26] [GSI                           ] [INFO    ] PROCESS START IA.GSI (BB). Components: ['E', 'N', 'Z']
+[2024-12-15 00:00:27] [TNTI                          ] [INFO    ] PROCESS START IA.TNTI (BB). Components: ['E', 'N', 'Z']
+[2024-12-15 00:01:45] [BBJI                          ] [INFO    ] BBJI_E_20241214 Process finish
+[2024-12-15 00:01:52] [BBJI                          ] [INFO    ] BBJI_N_20241214 Process finish
+[2024-12-15 00:02:01] [BBJI                          ] [INFO    ] BBJI_Z_20241214 Process finish
+[2024-12-15 00:02:02] [BBJI                          ] [INFO    ] PROCESS FINISH. Running final analysis...
+[2024-12-15 00:02:03] [sqes.analysis.qc_analyzer    ] [INFO    ] IA.BBJI (BB) QC ANALYSIS FINISH (Score: 87.45)
+[2024-12-15 00:15:34] [sqes.workflows.daily_processor] [INFO    ] Checking for stragglers on 2024-12-14...
+[2024-12-15 00:15:35] [sqes.workflows.daily_processor] [INFO    ] Found 0 stations for final QC Analysis.
+[2024-12-15 00:15:35] [sqes.workflows.daily_processor] [INFO    ] No stragglers found.
+[2024-12-15 00:15:36] [sqes.workflows.daily_processor] [INFO    ] All processing and analysis for 2024-12-14 is complete.
+[2024-12-15 00:15:36] [sqes.workflows.daily_processor] [INFO    ] --- Daily Run for 20241214 Finished (0:15:17) ---
+[2024-12-15 00:15:36] [__main__                     ] [INFO    ] --- ./sqes_cli.py Finished ---

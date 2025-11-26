@@ -1,28 +1,12 @@
-multiprocessing.pool.RemoteTraceback: 
-"""
-Traceback (most recent call last):
-  File "/usr/lib/python3.6/multiprocessing/pool.py", line 119, in worker
-    result = (True, func(*args, **kwds))
-  File "/usr/lib/python3.6/multiprocessing/pool.py", line 44, in mapstar
-    return list(map(*args))
-  File "sqes_v3_multiprocessing.py", line 130, in process_data
-    sql_execommit(pool,id_kode,sistem_sensor,tgl,sql) # tgl from global var
-  File "sqes_v3_multiprocessing.py", line 101, in sql_execommit
-    data = pool.execute(f)
-  File "/home/idripsensor/QCDATA/sqes_v3/sqes_v3_function.py", line 83, in execute
-    cursor = conn.cursor()
-  File "/home/idripsensor/.local/lib/python3.6/site-packages/mysql/connector/connection.py", line 809, in cursor
-    raise errors.OperationalError("MySQL Connection not available.")
-mysql.connector.errors.OperationalError: MySQL Connection not available.
-"""
-
-The above exception was the direct cause of the following exception:
-
-Traceback (most recent call last):
-  File "sqes_v3_multiprocessing.py", line 357, in <module>
-    pool.map(process_data,data)
-  File "/usr/lib/python3.6/multiprocessing/pool.py", line 266, in map
-    return self._map_async(func, iterable, mapstar, chunksize).get()
-  File "/usr/lib/python3.6/multiprocessing/pool.py", line 644, in get
-    raise self._value
-mysql.connector.errors.OperationalError: MySQL Connection not available.
+# This file captures shell errors and Python crashes from the cron job.
+# 
+# Normally this file will be empty if everything runs successfully.
+# 
+# Example errors you might see here:
+# - "python: command not found" - if Python path is incorrect
+# - "Permission denied" - if script is not executable
+# - "No such file or directory" - if project path is wrong
+# - Segmentation faults or Python crashes before logging initializes
+#
+# Note: Application-level errors (like FDSN download failures, database 
+# connection errors, etc.) appear in logs/log/YYYYMMDD.log, NOT here.
