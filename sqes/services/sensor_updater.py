@@ -57,6 +57,7 @@ def update_sensor_table(db_type: str, db_creds: Dict[str, Any], update_url: str)
             df_list = pd.read_html(StringIO(html_))
             
             temp_df = df_list[0].copy()
+            temp_df = temp_df.dropna()
             temp_df["Station/Channel"] = temp_df["Station/Channel"].str.split(" ")
             temp_df["channel"] = temp_df["Station/Channel"].apply(lambda x: x[1] if not x[1].isnumeric() else x[2])
             temp_df["location"] = temp_df["Station/Channel"].apply(lambda x: x[1] if x[1].isnumeric() else '')
