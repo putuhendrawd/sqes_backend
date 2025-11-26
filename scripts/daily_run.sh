@@ -3,8 +3,9 @@
 # SQES Daily Processing Script
 # Runs sqes_cli.py for "yesterday" (UTC)
 
-# Ensure we are in the correct directory
-PROJECT_DIR="/home/geo2sqes/dev/sqes_backend"
+# Automatically determine project directory from script location
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_DIR" || exit 1
 
 # Calculate yesterday's date in YYYYMMDD format (UTC)
@@ -13,8 +14,19 @@ DATE_TO_PROCESS=$(date -u -d "yesterday" +%Y%m%d)
 
 echo "--- Starting Daily Cron Job for Date: $DATE_TO_PROCESS ---"
 
-# Path to the Python executable in the 'sqes_backend' conda environment
-PYTHON_EXEC="/opt/miniconda3/envs/sqes_backend/bin/python"
+# Automatically detect Python executable
+# First try: Check if we're in a conda environment
+if [ -n "$CONDA_PREFIX" ]; then
+    PYTHON_EXEC="$CONDA_PREFIX/bin/python"
+# Second try: Find sqes_backend environment in default conda location
+elif [ -f "/opt/miniconda3/envs/sqes_backend/bin/python" ]; then
+    PYTHON_EXEC="/opt/miniconda3/envs/sqes_backend/bin/python"
+# Third try: Use system python3
+else
+    PYTHON_EXEC="$(which python3)"
+fi
+
+echo "Using Python: $PYTHON_EXEC"
 
 # Run the CLI
 # -v for INFO logging
