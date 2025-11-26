@@ -27,7 +27,8 @@ def process_station_data(sta_tuple,
                          output_paths: dict, 
                          pdf_trigger: bool,
                          mseed_trigger: bool, 
-                         log_level: int):
+                         log_level: int,
+                         log_file_path: str = None):
     """
     This is the main worker function that runs in a separate process.
     It processes all components (e.g., E,N,Z or 1,2,Z) for a single station.
@@ -50,7 +51,7 @@ def process_station_data(sta_tuple,
         print(f"!! FATAL: Error unpacking station tuple {sta_tuple}: {e}", flush=True)
         return
 
-    logger = setup_worker_logging(log_level, kode)
+    logger = setup_worker_logging(log_level, kode, log_file_path)
     logger.info(f"PROCESS START {network}.{kode} ({sistem_sensor}). Components: {channel_components}")
     
     try:

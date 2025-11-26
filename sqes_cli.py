@@ -139,9 +139,9 @@ if __name__ == "__main__":
         log_date_str = datetime.now().strftime('%Y%m%d') 
 
     if args.check_config:
-        log_level = setup_main_logging(args.verbose+1, log_date_str, log_dir="logs")   
+        log_level, log_file_path = setup_main_logging(args.verbose+1, log_date_str, log_dir="logs")   
     else:
-        log_level = setup_main_logging(args.verbose, log_date_str, log_dir="logs")
+        log_level, log_file_path = setup_main_logging(args.verbose, log_date_str, log_dir="logs")
     
     # Log the start banner and the arguments immediately
     logger.info(f"--- {sys.argv[0]} Starting ---")
@@ -236,10 +236,11 @@ if __name__ == "__main__":
             start_date_str=start_date_str,
             end_date_str=end_date_str,
             stations=args.stations,
-            npz=args.ppsd,
+            ppsd=args.ppsd,
             mseed=args.mseed,
             flush=args.flush,
             log_level=log_level,
+            log_file_path=log_file_path,
             basic_config=basic_config
         )
             

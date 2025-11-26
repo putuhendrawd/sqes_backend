@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 def run_single_day(date_str: str, ppsd: bool, flush: bool, mseed: bool,
-                    log_level: int, basic_config: Dict[str, Any],
+                    log_level: int, log_file_path: str, basic_config: Dict[str, Any],
                     stations: Optional[list] = None):
     """
     Orchestrates the processing of stations for a single day.
@@ -35,6 +35,7 @@ def run_single_day(date_str: str, ppsd: bool, flush: bool, mseed: bool,
         flush: Whether to flush existing data before processing
         mseed: Whether to save downloaded waveforms as MiniSEED
         log_level: Logging level (INFO, DEBUG, etc.)
+        log_file_path: Path to the log file for worker processes
         basic_config: Basic configuration dictionary
         stations: Optional list of station codes to process
     """
@@ -120,7 +121,8 @@ def run_single_day(date_str: str, ppsd: bool, flush: bool, mseed: bool,
                 output_paths=output_paths,
                 pdf_trigger=ppsd,
                 mseed_trigger=mseed,
-                log_level=log_level
+                log_level=log_level,
+                log_file_path=log_file_path
             )
             with multiprocessing.Pool(processes=processes_req) as pool:
                 pool.map(process_func, data)

@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 def run_processing_workflow(start_date_str: str, end_date_str: str, 
                             stations: Optional[list], ppsd: bool, 
                             mseed: bool, flush: bool, log_level: int,
+                            log_file_path: str,
                             basic_config: Dict[str, Any]):
     """
     Orchestrates processing for all or specific stations over a date range.
@@ -25,6 +26,7 @@ def run_processing_workflow(start_date_str: str, end_date_str: str,
         mseed: Whether to save downloaded waveforms as MiniSEED
         flush: Whether to flush existing data before processing
         log_level: Logging level (INFO, DEBUG, etc.)
+        log_file_path: Path to the log file for worker processes
         basic_config: Basic configuration dictionary
     """
     logger.info(f"--- Starting Main Workflow from {start_date_str} to {end_date_str} ---")
@@ -62,6 +64,7 @@ def run_processing_workflow(start_date_str: str, end_date_str: str,
                 mseed=mseed,
                 flush=do_flush, 
                 log_level=log_level,
+                log_file_path=log_file_path,
                 stations=stations,
                 basic_config=basic_config 
             )

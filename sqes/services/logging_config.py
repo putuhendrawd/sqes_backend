@@ -59,14 +59,15 @@ def setup_main_logging(verbosity_level: int, log_date_str: str, log_dir: str = "
     logging.getLogger(__name__).info(
         f"Main logger configured. Level: {logging.getLevelName(log_level)}. Log file: {log_file_path}"
     )
-    return log_level
+    return log_level, log_file_path
 
-def setup_worker_logging(log_level: int, station_code: str):
+def setup_worker_logging(log_level: int, station_code: str, log_file_path: str = None):
     """
     Configures a unique logger for a worker process.
     
     This is multiprocessing-safe:
     - It logs to console (stdout).
+    - It logs to the same file as the main process (if log_file_path is provided).
     - It sets `propagate = False` to avoid conflicts with the root logger.
     """
     logger = logging.getLogger(f"worker.{station_code}")
@@ -75,15 +76,23 @@ def setup_worker_logging(log_level: int, station_code: str):
     # Prevent logs from bubbling up to the root logger (which isn't configured here)
     logger.propagate = False 
     
-    # Add a console handler for this worker *only if it doesn't have one*
+    # Add handlers for this worker *only if it doesn't have any*
     if not logger.hasHandlers():
-        handler = logging.StreamHandler(sys.stdout)
         formatter = logging.Formatter(
             # Format includes station code for easy reading
             f"[%(asctime)s] [{station_code:30s}] [%(levelname)-8s] %(message)s",
             "%Y-%m-%d %H:%M:%S"
         )
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
+        
+        # Console handler
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setFormatter(formatter)
+        logger.addHandler(console_handler)
+        
+        # File handler (if path provided)
+        if log_file_path:
+            file_handler = logging.FileHandler(log_file_path)
+            file_handler.setFormatter(formatter)
+            logger.addHandler(file_handler)
     
     return logger
