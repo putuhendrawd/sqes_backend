@@ -8,15 +8,15 @@ A Python-based automated system for evaluating seismic data quality from seismom
 
 ## 📋 Table of Contents
 
-- [Overview](#overview)
-- [Features](#features)
-- [Architecture](#architecture)
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Usage](#usage)
-- [Quality Metrics](#quality-metrics)
-- [Output](#output)
-- [Development](#development)
+- [Overview](#-overview)
+- [Features](#-features)
+- [Architecture](#️-architecture)
+- [Installation](#-installation)
+- [Configuration](#️-configuration)
+- [Usage](#-usage)
+- [Quality Metrics](#-quality-metrics)
+- [Output](#-output)
+- [Development](#-development)
 
 ---
 
@@ -156,18 +156,137 @@ conda activate sqes_backend
 
 ### Database Setup
 
-**PostgreSQL:**
-```sql
-CREATE DATABASE sqes;
-CREATE USER your_db_user WITH PASSWORD 'your_password';
-GRANT ALL PRIVILEGES ON DATABASE sqes TO your_db_user;
+#### PostgreSQL Setup (Recommended)
+
+**Step 1: Create Database and User**
+
+Connect to PostgreSQL as superuser:
+```bash
+sudo -u postgres psql
 ```
 
-**MySQL:**
+Create the database and user:
 ```sql
+-- Create database
 CREATE DATABASE sqes;
-CREATE USER 'your_db_user'@'localhost' IDENTIFIED BY 'your_password';
-GRANT ALL PRIVILEGES ON sqes.* TO 'your_db_user'@'localhost';
+
+-- Create user with password
+CREATE USER sqes_user WITH PASSWORD 'your_secure_password';
+
+-- Grant connection privileges
+GRANT ALL PRIVILEGES ON DATABASE sqes TO sqes_user;
+
+-- Exit psql
+\q
+```
+
+**Step 2: Import Schema**
+
+Import the clean schema into your database:
+```bash
+psql -U sqes_user -d sqes -f files/sqes_schema_clean.sql
+```
+
+> [!NOTE]
+> The schema file `sqes_schema_clean.sql` is a portable version without hardcoded ownership. It creates 8 tables:
+> - `stations` - Station metadata
+> - `stations_sensor` - Sensor information per channel
+> - `stations_sensor_latency` - Real-time latency tracking
+> - `stations_qc_details` - Detailed QC metrics per component
+> - `stations_data_quality` - Overall quality scores
+> - `stations_dominant_data_quality` - Most common quality per station
+> - `stations_site_quality` - Site quality assessments
+> - `stations_visit` - Maintenance visit tracking
+
+**Step 3: Configure Table Permissions**
+
+Connect to your database and grant necessary permissions:
+```bash
+psql -U postgres -d sqes
+```
+
+Grant table permissions to your user:
+```sql
+-- Grant full access to all tables
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO sqes_user;
+
+-- Grant sequence usage (for auto-increment IDs)
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO sqes_user;
+
+-- Grant future table permissions (if you plan to add more tables)
+ALTER DEFAULT PRIVILEGES IN SCHEMA public 
+    GRANT ALL PRIVILEGES ON TABLES TO sqes_user;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public 
+    GRANT USAGE, SELECT ON SEQUENCES TO sqes_user;
+
+-- Exit psql
+\q
+```
+
+**Step 4: Verify Installation**
+
+Verify tables were created successfully:
+```bash
+psql -U sqes_user -d sqes -c "\dt"
+```
+
+You should see 8 tables listed. To verify permissions:
+```bash
+psql -U sqes_user -d sqes -c "SELECT * FROM stations LIMIT 1;"
+```
+
+#### Alternative: MySQL Setup
+
+If you prefer MySQL:
+
+```bash
+# Connect to MySQL
+mysql -u root -p
+```
+
+```sql
+-- Create database
+CREATE DATABASE sqes CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- Create user
+CREATE USER 'sqes_user'@'localhost' IDENTIFIED BY 'your_secure_password';
+
+-- Grant privileges
+GRANT ALL PRIVILEGES ON sqes.* TO 'sqes_user'@'localhost';
+FLUSH PRIVILEGES;
+
+-- Exit MySQL
+EXIT;
+```
+
+> [!IMPORTANT]
+> MySQL schema is not yet available. Currently, only PostgreSQL schema (`sqes_schema_clean.sql`) is provided. If you need MySQL support, you'll need to adapt the PostgreSQL schema or request MySQL-specific schema creation.
+
+#### Troubleshooting
+
+**Permission denied errors:**
+```bash
+# Ensure user has proper grants
+sudo -u postgres psql -d sqes -c "GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO sqes_user;"
+```
+
+**Connection refused:**
+```bash
+# Check if PostgreSQL is running
+sudo systemctl status postgresql
+
+# Start PostgreSQL if needed
+sudo systemctl start postgresql
+```
+
+**Schema import errors:**
+```bash
+# Check for existing tables (drop if restarting)
+psql -U sqes_user -d sqes -c "\dt"
+
+# Drop all tables if you need to restart (WARNING: destroys data)
+psql -U postgres -d sqes -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
 ```
 
 ---
