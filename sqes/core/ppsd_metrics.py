@@ -171,9 +171,9 @@ def process_ppsd_metrics(sig: Stream, inventory, plot_filename: str, npz_output_
         dcg = _dead_channel_gsn(psd1, NLNM, period)
         pctH, pctL = _percentage_outside_model(psd1, NHNM, NLNM)
         
-        diff20_100 = _percentage_inside_model_by_period(psd1, NLNM, NHNM, period, 20, 100)
-        diff5_20 = _percentage_inside_model_by_period(psd1, NLNM, NHNM, period, 5, 20)
-        diff5 = _percentage_inside_model_by_period(psd1, NLNM, NHNM, period, 0.1, 5)
+        long_period = _percentage_inside_model_by_period(psd1, NLNM, NHNM, period, 20, 900)
+        microseism = _percentage_inside_model_by_period(psd1, NLNM, NHNM, period, 2, 25)
+        short_period = _percentage_inside_model_by_period(psd1, NLNM, NHNM, period, 0.1, 1)
         
         # 5. Get Mean Data and Calculate DCL
         period_mean, psd_mean = ppsds.get_mean() # type: ignore
@@ -189,9 +189,9 @@ def process_ppsd_metrics(sig: Stream, inventory, plot_filename: str, npz_output_
             'pctL': str(pctL),
             'dcl': str(round(float(dcl), 2)),
             'dcg': str(round(dcg, 2)),
-            'diff20_100': str(diff20_100),
-            'diff5_20': str(diff5_20),
-            'diff5': str(diff5)
+            'long_period': str(long_period),
+            'microseism': str(microseism),
+            'short_period': str(short_period)
         }
         return final_metrics
         

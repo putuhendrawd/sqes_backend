@@ -259,7 +259,7 @@ class QCRepository:
             metrics['rms'], metrics['ratioamp'], metrics['psdata'],
             metrics['ngap'], metrics['nover'], metrics['num_spikes'],
             metrics['pctH'], metrics['pctL'], metrics['dcl'], metrics['dcg'],
-            metrics['diff20_100'], metrics['diff5_20'], metrics['diff5']
+            metrics['long_period'], metrics['microseism'], metrics['short_period']
         )
         self.pool.execute(query, args=args, commit=True)
         logger.debug(f"Inserted full metrics for {metrics['id_kode']}")
