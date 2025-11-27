@@ -34,7 +34,7 @@ def get_waveforms(client: SDSClient, net: str, sta: str, loc: str,
                         endtime=time1
                 )
                 for w in caught_warnings:
-                    logger.warning(str(w.message))
+                    logger.warning(f"{net}.{sta}.{loc_id}.{cha} Stream Warning{str(w.message)}")
             
             if st.count() > 0:
                 # st.merge(method=1) 
