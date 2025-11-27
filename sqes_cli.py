@@ -2,6 +2,7 @@
 import sys
 import logging
 import argparse
+import signal
 from datetime import datetime
 
 from sqes import __version__
@@ -10,6 +11,26 @@ from sqes.services.config_loader import load_config
 from sqes import workflows
 
 logger = logging.getLogger(__name__)
+
+def _handle_termination_signal(signum, frame):
+    """Handle termination signals (SIGTERM, SIGINT) and log before exiting."""
+    signal_names = {
+        signal.SIGTERM: "SIGTERM",
+        signal.SIGINT: "SIGINT (Ctrl+C)",
+        signal.SIGHUP: "SIGHUP"
+    }
+    signal_name = signal_names.get(signum, f"signal {signum}")
+    
+    logger.warning(f"")
+    logger.warning(f"{'='*70}")
+    logger.warning(f"⚠️  Process received {signal_name} - Terminating gracefully")
+    logger.warning(f"{'='*70}")
+    logger.warning(f"")
+    
+    # Flush logs before exit
+    logging.shutdown()
+    
+    sys.exit(128 + signum)  # Standard exit code for signal termination
 
 def _setup_arguments():
     """Configures command-line arguments using argparse."""
@@ -142,6 +163,14 @@ if __name__ == "__main__":
         log_level, log_file_path = setup_main_logging(args.verbose+1, log_date_str, log_dir="logs/log")   
     else:
         log_level, log_file_path = setup_main_logging(args.verbose, log_date_str, log_dir="logs/log")
+    
+    # Register signal handlers after logging is set up
+    signal.signal(signal.SIGTERM, _handle_termination_signal)
+    signal.signal(signal.SIGINT, _handle_termination_signal)
+    try:
+        signal.signal(signal.SIGHUP, _handle_termination_signal)  # Not available on Windows
+    except AttributeError:
+        pass  # SIGHUP not available on Windows
     
     # Log the start banner and the arguments immediately
     logger.info(f"--- {sys.argv[0]} Starting ---")
