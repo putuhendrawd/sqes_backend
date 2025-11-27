@@ -3,6 +3,7 @@ import logging
 from pathlib import Path
 from typing import Optional
 from obspy import UTCDateTime, read_inventory, Inventory
+import warnings
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,11 @@ def get_inventory(inventory_path: str, net: str, sta: str,
         if file_path.exists():
             try:
                 logger.debug(f"Reading inventory from {file_path}")
-                inv = read_inventory(str(file_path))
+                with warnings.catch_warnings(record=True) as caught_warnings:
+                    warnings.simplefilter("always")
+                    inv = read_inventory(str(file_path))
+                    for w in caught_warnings:
+                        logger.warning(f"{filename}: {str(w.message)}")
                 break # Found it, stop looking
             except Exception as e:
                 logger.warning(f"Failed to read local inventory {file_path}: {e}")

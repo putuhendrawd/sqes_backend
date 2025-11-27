@@ -5,33 +5,50 @@ import re
 from datetime import datetime
 
 class WarningMessageFilter(logging.Filter):
-    """
-    Custom filter to clean up warning messages from Python's warnings module.
-    Removes file paths and source code lines, keeping only the actual warning message.
-    """
     def filter(self, record):
-        # Process WARNING level messages that might contain file paths
-        if record.levelno == logging.WARNING and hasattr(record, 'msg'):
-            # The warning message often contains file path and line info
-            # Format: "filepath:line: WarningType: actual message\n  source code"
-            msg = str(record.msg)
-            
-            # Split by newlines to remove source code line (e.g., "  warnings.warn(...)")
-            lines = msg.split('\n')
-            if len(lines) > 1:
-                # Multi-line warning - take only the first line
-                main_line = lines[0]
-            else:
-                main_line = msg
-            
-            # Use regex to extract WarningType and message, ignoring the file path
-            # Matches: anything followed by :line_number: WarningType: message
-            match = re.search(r':\d+: (\w+): (.*)$', main_line)
-            if match:
-                warning_type = match.group(1)
-                warning_msg = match.group(2)
-                record.msg = f"{warning_type}: {warning_msg}"
+        # 1. Safety Check: Ensure message exists
+        if not hasattr(record, 'msg'):
+            return True
         
+        msg = str(record.msg).strip()
+
+        # 2. SUPPRESSION LIST (Exact phrase matching)
+        ignore_phrases = [
+            "Channel is missing depth information",
+            "FIR normalized",
+            "Found more than one matching response",
+            "encountered in detrend",
+            "The use of this method is deprecated",
+            "MatplotlibDeprecationWarning",
+            "Inconsistent word order"
+        ]
+        
+        # If the message contains any ignored phrase, KILL IT (Return False)
+        if any(phrase in msg for phrase in ignore_phrases):
+            return False
+
+        # 3. CLEAN UP (Formatting)
+        # We only want to clean up WARNINGs that look like file paths
+        if record.levelno == logging.WARNING:
+            # Handle multi-line warnings (remove source code printout)
+            if '\n' in msg:
+                msg = msg.split('\n')[0]
+
+            # REGEX: Find ":123: Category: Message"
+            # It looks for the pattern ":<numbers>: <Word>: " and keeps everything after.
+            match = re.search(r':\d+:\s*([^:]+):\s*(.*)$', msg)
+            if match:
+                warning_type = match.group(1).strip() # e.g. UserWarning
+                warning_text = match.group(2).strip() # e.g. Channel is missing...
+                record.msg = f"{warning_type}: {warning_text}"
+            
+            # Fallback: If regex failed but it looks like a path (starts with /), try simple split
+            elif msg.startswith('/') or msg.startswith('C:\\'):
+                parts = msg.split(': ')
+                if len(parts) >= 2:
+                    # Take the last part as the message
+                    record.msg = parts[-1]
+
         return True
 
 def setup_main_logging(verbosity_level: int, log_date_str: str, log_dir: str = "logs/log"):
@@ -91,134 +108,66 @@ def setup_main_logging(verbosity_level: int, log_date_str: str, log_dir: str = "
 
 def setup_worker_logging(log_level: int, station_code: str, log_file_path: str = None):
     """
-    Configures a unique logger for a worker process.
-    
-    This is multiprocessing-safe:
-    - It logs to console (stdout).
-    - It logs to the same file as the main process (if log_file_path is provided).
-    - It sets `propagate = False` to avoid conflicts with the root logger.
-    - It also configures the ObsPy logger to write to the log file.
-    - It configures py.warnings logger to show which worker generated warnings.
-    - It configures the root logger to catch ALL warnings from any module.
+    Configures logging for a worker process.
+    Attaches filters directly to HANDLERS to guarantee they run.
     """
     
-    # First, configure the root logger to catch warnings from ANY module
-    # This ensures we don't miss warnings from numpy, scipy, or other libraries ObsPy uses
+    # 1. Ensure Python's warnings are captured into the logging system
     logging.captureWarnings(True)
-    root_logger = logging.getLogger()
-    root_logger.setLevel(logging.WARNING)  # Catch warnings and above
     
-    # Check if root logger already has handlers (inherited from parent process via fork)
-    if root_logger.hasHandlers():
-        # Add the WarningMessageFilter to all existing handlers
-        for handler in root_logger.handlers:
-            # Check if filter is not already added
-            if not any(isinstance(f, WarningMessageFilter) for f in handler.filters):
-                handler.addFilter(WarningMessageFilter())
-    else:
-        # No handlers exist, create new ones
-        root_formatter = logging.Formatter(
-            f"[%(asctime)s] [{station_code:30s}] [%(levelname)-8s] %(message)s",
-            "%Y-%m-%d %H:%M:%S"
-        )
+    # 2. Define the Formatter
+    formatter = logging.Formatter(
+        f"[%(asctime)s] [{station_code:30s}] [%(levelname)-8s] %(message)s",
+        "%Y-%m-%d %H:%M:%S"
+    )
+    
+    # 3. Create the Filter Instance
+    warning_filter = WarningMessageFilter()
+
+    # 4. Helper to create fresh handlers with the FILTER ATTACHED
+    def create_handlers():
+        handlers = []
         
-        # Console handler for root
-        root_console_handler = logging.StreamHandler(sys.stdout)
-        root_console_handler.setFormatter(root_formatter)
-        root_console_handler.addFilter(WarningMessageFilter()) 
-        root_logger.addHandler(root_console_handler)
+        # Console Handler
+        ch = logging.StreamHandler(sys.stdout)
+        ch.setFormatter(formatter)
+        ch.addFilter(warning_filter)  
+        handlers.append(ch)
         
-        # File handler for root (if path provided)
+        # File Handler (if path provided)
         if log_file_path:
-            root_file_handler = logging.FileHandler(log_file_path)
-            root_file_handler.setFormatter(root_formatter)
-            root_file_handler.addFilter(WarningMessageFilter())
-            root_logger.addHandler(root_file_handler)
-    
-    # Now configure the worker-specific logger
+            fh = logging.FileHandler(log_file_path)
+            fh.setFormatter(formatter)
+            fh.addFilter(warning_filter) 
+            handlers.append(fh)
+            
+        return handlers
+
+    # Generate the handlers once
+    worker_handlers = create_handlers()
+
+    # --- LOGGER 1: The Worker's Main Logger ---
     logger = logging.getLogger(f"worker.{station_code}")
     logger.setLevel(log_level)
-    
-    # Prevent logs from bubbling up to the root logger (which isn't configured here)
-    logger.propagate = False 
-    
-    # Add handlers for this worker *only if it doesn't have any*
-    if not logger.hasHandlers():
-        formatter = logging.Formatter(
-            f"[%(asctime)s] [{station_code:30s}] [%(levelname)-8s] %(message)s",
-            "%Y-%m-%d %H:%M:%S"
-        )
-        
-        # Console handler
-        console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setFormatter(formatter)
-        logger.addHandler(console_handler)
-        
-        # File handler (if path provided)
-        if log_file_path:
-            file_handler = logging.FileHandler(log_file_path)
-            file_handler.setFormatter(formatter)
-            logger.addHandler(file_handler)
-    
-    # Configure ObsPy logger to also write to the log file
-    obspy_logger = logging.getLogger("obspy")
-    obspy_logger.setLevel(logging.WARNING)
-    obspy_logger.propagate = False
-    
-    # Only add handlers if ObsPy logger doesn't have any (avoid duplicates)
-    if not obspy_logger.hasHandlers():
-        obspy_formatter = logging.Formatter(
-            f"[%(asctime)s] [{station_code:30s}] [%(levelname)-8s] %(message)s",
-            "%Y-%m-%d %H:%M:%S"
-        )
-        
-        # Console handler for ObsPy
-        obspy_console_handler = logging.StreamHandler(sys.stdout)
-        obspy_console_handler.setFormatter(obspy_formatter)
-        obspy_console_handler.addFilter(WarningMessageFilter())
-        obspy_logger.addHandler(obspy_console_handler)
-        
-        # File handler for ObsPy
-        if log_file_path:
-            obspy_file_handler = logging.FileHandler(log_file_path)
-            obspy_file_handler.setFormatter(obspy_formatter)
-            obspy_file_handler.addFilter(WarningMessageFilter())
-            obspy_logger.addHandler(obspy_file_handler)
-    else:
-        # If handlers exist (e.g. process reuse), ensure they have the filter
-        for handler in obspy_logger.handlers:
-            if not any(isinstance(f, WarningMessageFilter) for f in handler.filters):
-                handler.addFilter(WarningMessageFilter())
-    
-    # Configure py.warnings logger to show which worker generated Python warnings
+    logger.propagate = False
+    logger.handlers = []  
+    for h in worker_handlers:
+        logger.addHandler(h)
+
+    # --- LOGGER 2: Python Warnings (py.warnings) ---
     warnings_logger = logging.getLogger("py.warnings")
     warnings_logger.setLevel(logging.WARNING)
     warnings_logger.propagate = False
-    
-    # Check if warnings logger already has handlers
-    if warnings_logger.hasHandlers():
-        # Add the WarningMessageFilter to all existing handlers
-        for handler in warnings_logger.handlers:
-            if not any(isinstance(f, WarningMessageFilter) for f in handler.filters):
-                handler.addFilter(WarningMessageFilter())
-    else:
-        # Only add handlers if warnings logger doesn't have any (avoid duplicates)
-        warnings_formatter = logging.Formatter(
-            f"[%(asctime)s] [{station_code:30s}] [%(levelname)-8s] %(message)s",
-            "%Y-%m-%d %H:%M:%S"
-        )
-        
-        # Console handler for py.warnings
-        warnings_console_handler = logging.StreamHandler(sys.stdout)
-        warnings_console_handler.setFormatter(warnings_formatter)
-        warnings_console_handler.addFilter(WarningMessageFilter())
-        warnings_logger.addHandler(warnings_console_handler)
-        
-        # File handler for py.warnings (if path provided)
-        if log_file_path:
-            warnings_file_handler = logging.FileHandler(log_file_path)
-            warnings_file_handler.setFormatter(warnings_formatter)
-            warnings_file_handler.addFilter(WarningMessageFilter())
-            warnings_logger.addHandler(warnings_file_handler)
-    
+    warnings_logger.handlers = [] 
+    for h in worker_handlers:
+        warnings_logger.addHandler(h)
+
+    # --- LOGGER 3: ObsPy Logger ---
+    obspy_logger = logging.getLogger("obspy")
+    obspy_logger.setLevel(logging.WARNING)
+    obspy_logger.propagate = False
+    obspy_logger.handlers = [] 
+    for h in worker_handlers:
+        obspy_logger.addHandler(h)
+
     return logger

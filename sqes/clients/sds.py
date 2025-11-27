@@ -2,6 +2,7 @@ import logging
 from typing import Optional
 from obspy import Stream, UTCDateTime
 from obspy.clients.filesystem.sds import Client as SDSClient
+import warnings
 
 logger = logging.getLogger(__name__)
 
@@ -22,14 +23,18 @@ def get_waveforms(client: SDSClient, net: str, sta: str, loc: str,
         
         try:
             # Let the client find, read, and trim the file
-            st = client.get_waveforms(
-                network=net,
-                station=sta,
-                location=loc_id,
-                channel=cha,
-                starttime=time0,
-                endtime=time1
-            )
+            with warnings.catch_warnings(record=True) as caught_warnings:
+                warnings.simplefilter("always")
+                st = client.get_waveforms(
+                        network=net,
+                        station=sta,
+                        location=loc_id,
+                        channel=cha,
+                        starttime=time0,
+                        endtime=time1
+                )
+                for w in caught_warnings:
+                    logger.warning(str(w.message))
             
             if st.count() > 0:
                 # st.merge(method=1) 
