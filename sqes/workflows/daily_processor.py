@@ -50,7 +50,7 @@ def run_single_day(date_str: str, ppsd: bool, flush: bool, mseed: bool,
         time0, time1, tgl, tahun = setup_paths_and_times(date_str)
         output_paths = get_output_paths(basic_config, tahun, tgl, date_str)
     except Exception as e:
-        logger.error(f"Failed to setup workflow for {date_str}: {e}", exc_info=True)
+        logger.error(f"Failed to setup workflow for {date_str}: {e}")
         return
 
     # This loop is to catch incomplete processing

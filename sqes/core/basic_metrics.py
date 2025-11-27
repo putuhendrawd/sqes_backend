@@ -117,8 +117,7 @@ def _calculate_spikes(st: Stream, wn: int, sigma: int, method: str = 'fast'):
             continue
         except Exception as e:
             logger.warning(
-                f"Spike calculation failed for {tr.id}: {e}",
-                exc_info=True
+                f"Spike calculation failed for {tr.id}: {e}"
             )
             continue
             

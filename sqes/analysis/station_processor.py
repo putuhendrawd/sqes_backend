@@ -91,7 +91,7 @@ def process_station_data(sta_tuple,
             return
 
     except Exception as e:
-        logger.error(f"Failed to initialize worker resources: {e}", exc_info=True)
+        logger.error(f"Failed to initialize worker resources: {e}")
         return
 
     # Unpack output paths
@@ -115,7 +115,7 @@ def process_station_data(sta_tuple,
                 repo.insert_default_qc_detail(id_kode, kode, tgl, cha, metrics)
                 logger.warning(f"{id_kode} - Skipped with default parameters. Reason: {reason}")
             except Exception as e:
-                logger.error(f"{id_kode} - FAILED to log default parameters: {e}", exc_info=True)
+                logger.error(f"{id_kode} - FAILED to log default parameters: {e}")
             time.sleep(0.5)
 
         # --- 2. Load/Download Waveforms ---
@@ -142,7 +142,7 @@ def process_station_data(sta_tuple,
             log_default_and_continue(reason="Download Timeout")
             continue
         except Exception as e:
-            logger.error(f"!! {id_kode} data acquisition error: {e}", exc_info=True)
+            logger.error(f"!! {id_kode} data acquisition error: {e}")
             log_default_and_continue(reason="Data Acquisition Error")
             continue
 
@@ -187,7 +187,7 @@ def process_station_data(sta_tuple,
             signal.alarm(0)
         except Exception as e:
             signal.alarm(0)
-            logger.error(f"{id_kode} saving exception: {e}", exc_info=True)
+            logger.error(f"{id_kode} saving exception: {e}")
             log_default_and_continue(cha=ch, reason="Save waveform/plot failed")
             continue
         
@@ -213,7 +213,7 @@ def process_station_data(sta_tuple,
             }
 
         except Exception as e:
-            logger.error(f"{id_kode} basic info exception: {e}", exc_info=True)
+            logger.error(f"{id_kode} basic info exception: {e}")
             log_default_and_continue(cha=cha, reason="Basic metrics failed")
             continue
         
@@ -245,7 +245,7 @@ def process_station_data(sta_tuple,
             continue
         except Exception as e:
             signal.alarm(0)
-            logger.error(f"{id_kode} PPSD metric processing failed: {e}", exc_info=True)
+            logger.error(f"{id_kode} PPSD metric processing failed: {e}")
             log_default_and_continue(basic_metrics_dict, cha, reason="PPSD processing error")
             continue
 
@@ -269,7 +269,7 @@ def process_station_data(sta_tuple,
             logger.info(f"{id_kode} Process finish")
             time.sleep(0.5)
         except Exception as e:
-            logger.error(f"{id_kode} Database commit error: {e}", exc_info=True)
+            logger.error(f"{id_kode} Database commit error: {e}")
             
     # --- End of channel loop ---
 
@@ -278,7 +278,7 @@ def process_station_data(sta_tuple,
     try:
         qc_analyzer.run_qc_analysis(repo, basic_config['use_database'], tgl, kode)
     except Exception as e:
-        logger.error(f"QC Analysis failed for {kode}: {e}", exc_info=True)
+        logger.error(f"QC Analysis failed for {kode}: {e}")
         
     time.sleep(0.5)
     

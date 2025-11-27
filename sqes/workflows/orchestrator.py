@@ -69,7 +69,8 @@ def run_processing_workflow(start_date_str: str, end_date_str: str,
                 basic_config=basic_config 
             )
         except Exception as e:
-            logger.error(f"Failed to process {date_str}: {e}. Skipping to next date.", exc_info=True)
+            logger.error(f"Failed to process {date_str}: {e}. Skipping to next date.")
+
             
         current_date += timedelta(days=1)
         

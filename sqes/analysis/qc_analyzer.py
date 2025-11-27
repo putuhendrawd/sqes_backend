@@ -40,7 +40,8 @@ def run_qc_analysis(repo: QCRepository, db_type: str, tanggal: str, station_code
         repo.flush_analysis_result(tanggal, station_code)
         logger.debug(f"Ready to fill analysis for {station_code} on {tanggal}")
     except Exception as e:
-        logger.error(f"Failed to flush analysis for {station_code}: {e}", exc_info=True)
+        logger.error(f"Failed to flush analysis for {station_code}: {e}")
+
         return # Cannot proceed
 
     # 2. Get station info (e.g., 'tipe' or 'network_group')

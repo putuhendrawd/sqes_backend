@@ -56,7 +56,7 @@ def _create_ppsd_object(sig: Stream, inventory: Optional[Inventory] = None, npz_
         return ppsds_object
         
     except Exception as e:
-        logger.error(f"!! Error during PPSD object creation for {_id}: {e}", exc_info=True)
+        logger.error(f"!! Error during PPSD object creation for {_id}: {e}")
         return None
 
 # --- Private Helper: Calculation Functions ---
@@ -197,5 +197,5 @@ def process_ppsd_metrics(sig: Stream, inventory, plot_filename: str, npz_output_
         
     except Exception as e:
         stream_id = _trace.id if sig else "empty stream"
-        logger.error(f"!! Final PPSD metric calculation failed for {stream_id}: {e}", exc_info=True)
+        logger.error(f"!! Final PPSD metric calculation failed for {stream_id}: {e}")
         return None
