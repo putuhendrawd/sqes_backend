@@ -78,10 +78,10 @@ sqes_backend/
 │   │   ├── __init__.py      # Public API exports
 │   │   ├── orchestrator.py  # Main workflow entry point
 │   │   ├── daily_processor.py # Single-day processing logic
-│   │   └── helpers.py       # Helper functions
-│   ├── analysis/            # QC analysis and scoring
-│   │   ├── qc_analyzer.py   # Quality score calculation
+│   │   ├── helpers.py       # Helper functions
 │   │   └── station_processor.py # Station data processing
+│   ├── analysis/            # QC analysis and scoring
+│   │   └── qc_analyzer.py   # Quality score calculation
 │   ├── core/                # Core computation modules
 │   │   ├── basic_metrics.py # RMS, gaps, spikes, availability
 │   │   ├── ppsd_metrics.py  # PPSD and noise model analysis
@@ -570,7 +570,7 @@ logs/sqes_20231215_debug.log  # If -vv is used
 - **`sqes/workflows/orchestrator.py`**: Main workflow orchestration for date ranges
 - **`sqes/workflows/daily_processor.py`**: Single-day processing logic
 - **`sqes/workflows/helpers.py`**: Helper functions for setup and configuration
-- **`sqes/analysis/station_processor.py`**: Downloads waveforms and computes metrics
+- **`sqes/workflows/station_processor.py`**: Downloads waveforms and computes metrics
 - **`sqes/analysis/qc_analyzer.py`**: Calculates quality scores
 - **`sqes/services/repository.py`**: Database CRUD operations
 - **`sqes/services/file_system.py`**: File system operations
@@ -595,7 +595,7 @@ pytest tests/test_basic_metrics.py
 ### Adding New Metrics
 
 1. Add computation function to `sqes/core/basic_metrics.py` or `ppsd_metrics.py`
-2. Update `sqes/analysis/station_processor.py` to compute the metric
+2. Update `sqes/workflows/station_processor.py` to compute the metric
 3. Modify database schema to store the new metric
 4. Update `sqes/analysis/qc_analyzer.py` to include it in scoring
 5. Add tests in `tests/`

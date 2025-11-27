@@ -8,7 +8,7 @@ from typing import Any, Optional, Dict
 
 from sqes.services.db_pool import DBPool
 from sqes.services.repository import QCRepository
-from sqes.analysis.station_processor import process_station_data
+from sqes.workflows.station_processor import process_station_data
 from sqes.analysis import qc_analyzer
 from sqes.workflows.helpers import (
     get_common_configs,
