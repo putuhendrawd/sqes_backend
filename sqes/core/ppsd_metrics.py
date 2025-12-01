@@ -146,7 +146,7 @@ def process_ppsd_metrics(sig: Stream, inventory, plot_filename: str, npz_output_
         
         # 2. Plot the PPSD
         if plot_filename:
-            ppsds.plot(filename=plot_filename, cmap=pqlx, show=False, period_lim=(0.05, 100))
+            ppsds.plot(filename=plot_filename, cmap=pqlx, show=False, period_lim=(0.03, 100))
         
         fs = _trace.stats.sampling_rate
         
