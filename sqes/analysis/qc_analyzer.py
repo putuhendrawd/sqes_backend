@@ -119,19 +119,11 @@ def run_qc_analysis(repo: QCRepository, db_type: str, tanggal: str, station_code
             # num_spikes
             num_spikes_grade = _agregate(num_spikes, 0, 25) # update 90th percentile threshold (Ringler 2015)
             # pct_noise
-            pct_noise = 100.0 - pct_above - pct_below # update 90th percentile threshold (Ringler 2015) 
+            pct_noise = 100.0 - pct_above - pct_below # % of PSD within NHNM/NLNM bounds
             # dcl
             dcl_grade = _agregate(dcl, 9.0, -1.0) # update 90th percentile threshold (Ringler 2015)
-            
-            # 7. Generate 'keterangan' (details)
-            if pct_below > 20.0:
-                ket.append(f"Cek metadata komponen {komp}")
-            elif ngap1 > 500:
-                ket.append(f"Terlalu banyak gap pada komponen {komp}")
-            elif pct_above > 20 and avail >= 10.0:
-                ket.append(f"Noise tinggi di komponen {komp}")
                 
-            # 8. Calculate final weighted score
+            # 7. Calculate final weighted score
             if avail <= 0.0:
                 botqc = 0.0
                 ket.append(f'Komponen {komp} Mati')
@@ -142,18 +134,30 @@ def run_qc_analysis(repo: QCRepository, db_type: str, tanggal: str, station_code
                 botqc = 1.0
                 ket.append(f'Komponen {komp} Rusak')
             else:
+                # 8. Generate 'keterangan' (details)
+                if pct_below > 20.0:
+                    ket.append(f"Cek metadata komponen {komp}")
+                elif ngap1 > 500:
+                    ket.append(f"Terlalu banyak gap pada komponen {komp}")
+                elif pct_above > 20 and avail >= 10.0:
+                    ket.append(f"Noise tinggi di komponen {komp}")
+                elif num_spikes > 100:  # Adjust threshold as needed
+                    ket.append(f"Spike berlebihan pada komponen {komp}")
+
                 # Weighted average for this component
                 botqc = (0.35 * pct_noise + 0.15 * avail + 0.1 * rms_grade + 0.1 * ratioamp_grade + 
                          0.1 * ngap_grade + 0.1 * nover_grade + 0.1 * num_spikes_grade)
             
             percqc_list.append(botqc)
             
-        # 9. Average score and save
+        #9. Average score and save
         if not percqc_list:
              score = 0.0
         else:
-            # Median the scores of all components
-            score = np.median(percqc_list)
+            if 1.0 in percqc_list: # limit to 59 (Poor/Buruk) if any component is not responding
+                score = min(np.median(percqc_list), 59.0)
+            else:
+                score = np.median(percqc_list)
             
         kualitas = _check_qc(score)
         

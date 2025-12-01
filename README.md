@@ -476,29 +476,35 @@ SQES computes a weighted quality score (0-100%) based on the following metrics:
 
 ### Metric Components
 
-Quality thresholds are based on **Ringler et al. (2015)** standards for seismic network quality control.
+Quality thresholds are based on **Ringler et al. (2015)** 90th percentile standards and **QuARG** (Quality Assurance Review Group) guidelines for seismic network quality control.
 
-| Metric | Weight | Description |
-|--------|--------|-------------|
-| **Noise Level** | 35% | Percentage of PSD within Peterson noise models (NHNM/NLNM) |
-| **Availability** | 15% | Percentage of expected data present |
-| **RMS** | 10% | Root Mean Square amplitude (sensor health indicator) |
-| **Amplitude Ratio** | 10% | Ratio between max and min amplitudes |
-| **Gaps** | 10% | Number of data gaps (QuARG standards) |
-| **Overlaps** | 10% | Number of data overlaps |
-| **Spikes** | 10% | Number of detected amplitude spikes |
+| Metric | Weight | Description | Thresholds |
+|--------|--------|-------------|------------|
+| **Noise Level** | 35% | Percentage of PSD within Peterson noise models (NHNM/NLNM) | Calculated as `100% - pct_above - pct_below` |
+| **Availability** | 15% | Percentage of expected data present | N/A (direct percentage) |
+| **RMS** | 10% | Root Mean Square amplitude (sensor health indicator) | Limit: 5000, Margin: 7500 |
+| **Amplitude Ratio** | 10% | Ratio between max and min amplitudes | Limit: 1.01, Margin: 2.02 |
+| **Gaps** | 10% | Number of data gaps | Limit: 0.00274, Margin: 0.992 (QuARG) |
+| **Overlaps** | 10% | Number of data overlaps | Limit: 0, Margin: 1.25 |
+| **Spikes** | 10% | Number of detected amplitude spikes | Limit: 0, Margin: 25 |
 
 > [!NOTE]
 > Dead Channel Linear (DCL) and Dead Channel GSN (DCG) are computed but used as **binary flags** for sensor malfunction detection, not included in the weighted score calculation.
+> 
+> **DCL threshold**: ≤ 2.25 indicates unresponsive sensor (Grading: Limit: 9.0, Margin: -1.0)  
+> **DCG threshold**: = 1 indicates dead channel (binary flag)
 
 ### Quality Classification
 
-| Score | Classification | Indonesian |
-|-------|----------------|------------|
-| 90-100% | Good | Baik |
-| 60-89% | Fair | Cukup Baik |
-| 1-59% | Poor | Buruk |
-| 0% | Dead | Mati |
+| Score | Classification | Indonesian | Notes |
+|-------|----------------|------------|-------|
+| 90-100% | Good | Baik | All components healthy |
+| 60-89% | Fair | Cukup Baik | Acceptable quality |
+| 1-59% | Poor | Buruk | Degraded performance |
+| 0% | Dead | Mati | No data available |
+
+> [!IMPORTANT]
+> If any component is **unresponsive or damaged** (score = 1.0), the final station score is **capped at 59%** (maximum "Poor" grade) regardless of other component scores.
 
 ### Grading Logic
 
@@ -508,35 +514,62 @@ Each metric is graded using the `_agregate()` function:
 
 ```python
 grade = 100.0 - (15.0 * (parameter - limit) / margin)
+# Clamped between 0-100%
 ```
 
-Parameters exceeding limits reduce the grade (clamped between 0-100%).
+Parameters exceeding limits reduce the grade. The function ensures scores stay within valid bounds.
 
 **Step 2: Component Score Calculation**
 
-For each component (E, N, Z), a weighted score is calculated:
+For each component (E, N, Z), the algorithm first checks for critical failures, then computes a weighted score:
 
 ```python
-component_score = (0.35 * noise_level + 0.15 * availability + 0.10 * rms_grade + 
-                   0.10 * amplitude_ratio + 0.10 * gaps + 0.10 * overlaps + 
-                   0.10 * spikes)
+# Special cases (override weighted calculation):
+if availability <= 0.0:
+    component_score = 0.0  # Dead sensor
+elif dcg == 1 or dcl <= 2.25:
+    component_score = 1.0  # Unresponsive to vibration (QuARG)
+elif 0 < rms < 1:
+    component_score = 1.0  # Damaged sensor
+else:
+    # Normal weighted calculation
+    component_score = (0.35 * noise_level + 
+                       0.15 * availability + 
+                       0.10 * rms_grade + 
+                       0.10 * amplitude_ratio + 
+                       0.10 * gaps + 
+                       0.10 * overlaps + 
+                       0.10 * spikes)
 ```
-
-**Special cases** (override weighted calculation):
-- **Dead sensor** (availability ≤ 0%): score = 0
-- **Unresponsive to vibration** (DCG = 1 or DCL ≤ 2.25): score = 1
-- **Damaged sensor** (0 < RMS < 1): score = 1
 
 **Step 3: Station Score Aggregation**
 
-The final station score is the **median** of all component scores:
+The final station score is the **median** of all component scores, with special handling for degraded components:
 
 ```python
-station_score = median([score_E, score_N, score_Z])
+if any component has score == 1.0:  # Unresponsive/damaged component
+    station_score = min(median([score_E, score_N, score_Z]), 59.0)
+else:
+    station_score = median([score_E, score_N, score_Z])
 ```
 
-> [!TIP]
-> Using the median instead of mean makes the system more robust to single-component failures while still reflecting overall station quality.
+> [!NOTE]
+> **Why median instead of mean?**  
+> Using the median makes the system more robust to single-component failures while still reflecting overall station quality. A station with one bad component won't be unfairly penalized if the other two are excellent.
+
+### Quality Warnings
+
+The system automatically generates warnings for specific conditions:
+
+| Condition | Warning Message (Indonesian) |
+|-----------|------------------------------|
+| `pct_below > 20%` | "Cek metadata komponen {X}" - Check component metadata |
+| `gaps > 500` | "Terlalu banyak gap pada komponen {X}" - Too many gaps |
+| `pct_above > 20% AND avail >= 10%` | "Noise tinggi di komponen {X}" - High noise |
+| `num_spikes > 100` | "Spike berlebihan pada komponen {X}" - Excessive spikes |
+| `availability <= 0%` | "Komponen {X} Mati" - Component dead |
+| `dcg == 1 OR dcl <= 2.25` | "Komponen {X} tidak merespon getaran" - No response to vibration |
+| `0 < rms < 1` | "Komponen {X} Rusak" - Component damaged |
 
 ---
 
