@@ -476,16 +476,20 @@ SQES computes a weighted quality score (0-100%) based on the following metrics:
 
 ### Metric Components
 
+Quality thresholds are based on **Ringler et al. (2015)** standards for seismic network quality control.
+
 | Metric | Weight | Description |
 |--------|--------|-------------|
+| **Noise Level** | 35% | Percentage of PSD within Peterson noise models (NHNM/NLNM) |
 | **Availability** | 15% | Percentage of expected data present |
-| **RMS** | 15% | Root Mean Square amplitude (sensor health) |
+| **RMS** | 10% | Root Mean Square amplitude (sensor health indicator) |
 | **Amplitude Ratio** | 10% | Ratio between max and min amplitudes |
-| **Gaps** | 2.5% | Number of data gaps |
-| **Overlaps** | 2.5% | Number of data overlaps |
-| **Noise Level** | 30% | Percentage within Peterson noise models |
-| **Dead Channel Linear** | 12.5% | Linear dead channel detection |
-| **Dead Channel GSN** | 12.5% | GSN dead channel detection |
+| **Gaps** | 10% | Number of data gaps (QuARG standards) |
+| **Overlaps** | 10% | Number of data overlaps |
+| **Spikes** | 10% | Number of detected amplitude spikes |
+
+> [!NOTE]
+> Dead Channel Linear (DCL) and Dead Channel GSN (DCG) are computed but used as **binary flags** for sensor malfunction detection, not included in the weighted score calculation.
 
 ### Quality Classification
 
@@ -498,14 +502,41 @@ SQES computes a weighted quality score (0-100%) based on the following metrics:
 
 ### Grading Logic
 
+**Step 1: Individual Metric Grading**
+
 Each metric is graded using the `_agregate()` function:
 
 ```python
 grade = 100.0 - (15.0 * (parameter - limit) / margin)
 ```
 
-- Parameters exceeding limits reduce the grade
-- Final score is a weighted average across all components (E, N, Z)
+Parameters exceeding limits reduce the grade (clamped between 0-100%).
+
+**Step 2: Component Score Calculation**
+
+For each component (E, N, Z), a weighted score is calculated:
+
+```python
+component_score = (0.35 * noise_level + 0.15 * availability + 0.10 * rms_grade + 
+                   0.10 * amplitude_ratio + 0.10 * gaps + 0.10 * overlaps + 
+                   0.10 * spikes)
+```
+
+**Special cases** (override weighted calculation):
+- **Dead sensor** (availability ≤ 0%): score = 0
+- **Unresponsive to vibration** (DCG = 1 or DCL ≤ 2.25): score = 1
+- **Damaged sensor** (0 < RMS < 1): score = 1
+
+**Step 3: Station Score Aggregation**
+
+The final station score is the **median** of all component scores:
+
+```python
+station_score = median([score_E, score_N, score_Z])
+```
+
+> [!TIP]
+> Using the median instead of mean makes the system more robust to single-component failures while still reflecting overall station quality.
 
 ---
 

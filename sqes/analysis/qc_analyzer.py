@@ -101,33 +101,30 @@ def run_qc_analysis(repo: QCRepository, db_type: str, tanggal: str, station_code
                 continue 
             
             # 6. Perform grading logic
+            # rms
             if rms > 1.0:
-                rms_grade = _agregate(abs(rms), 5000, 10000)
+                rms_grade = _agregate(abs(rms), 5000, 7500) # update 90th percentile threshold (Ringler 2015)
             else:
                 rms_grade = 0.0 # Bad sensor
-            
-            ratioamp_grade = _agregate(ratioamp, 1.01, 2.0)
-            
-            if avail >= 100.0:
+            # availability
+            if avail >= 100.0: 
                 ngap1 = 0
                 avail = 100.0
-            ngap_grade = _agregate(ngap1, 0, 4)
-            nover_grade = _agregate(nover, 0, 4)
-            num_spikes_grade = _agregate(num_spikes, 100, 500)
+            # ratioamp
+            ratioamp_grade = _agregate(ratioamp, 1.01, 2.02) # update 90th percentile threshold (Ringler 2015)
+            # ngap
+            ngap_grade = _agregate(ngap1, 0.00274, 0.992) # QuARG
+            # nover
+            nover_grade = _agregate(nover, 0, 1.25) # update 90th percentile threshold
+            # num_spikes
+            num_spikes_grade = _agregate(num_spikes, 0, 25) # update 90th percentile threshold (Ringler 2015)
+            # pct_noise
+            pct_noise = 100.0 - pct_above - pct_below # update 90th percentile threshold (Ringler 2015) 
+            # dcl
+            dcl_grade = _agregate(dcl, 9.0, -1.0) # update 90th percentile threshold (Ringler 2015)
             
-            pct_noise = 100.0 - pct_above - pct_below
-            dcl_grade = _agregate(dcl, 2.0, -3.0)
-            
-            # --- Grading for the binary DCG ---
-            # If dcg is 1 (dead), grade is 0. If 0 (ok), grade is 100.
-            dcg_grade = 100.0 if dcg == 0 else 0.0
-
             # 7. Generate 'keterangan' (details)
-            if rms < 1.0 and rms > 0.0:
-                ket.append(f"Komponen {komp} rusak")
-            elif dcg == 1: # Use the binary value
-                ket.append(f"Komponen {komp} tidak merespon getaran (GSN Dead)")
-            elif pct_below > 20.0:
+            if pct_below > 20.0:
                 ket.append(f"Cek metadata komponen {komp}")
             elif ngap1 > 500:
                 ket.append(f"Terlalu banyak gap pada komponen {komp}")
@@ -138,32 +135,37 @@ def run_qc_analysis(repo: QCRepository, db_type: str, tanggal: str, station_code
             if avail <= 0.0:
                 botqc = 0.0
                 ket.append(f'Komponen {komp} Mati')
+            elif dcg == 1 or dcl <= 2.25: # QuARG
+                botqc = 1.0
+                ket.append(f'Komponen {komp} tidak merespon getaran')
+            elif rms < 1 and rms > 0:
+                botqc = 1.0
+                ket.append(f'Komponen {komp} Rusak')
             else:
                 # Weighted average for this component
-                botqc = (0.15 * avail + 0.15 * rms_grade + 0.1 * ratioamp_grade +
-                         0.025 * ngap_grade + 0.025 * nover_grade + 0.3 * pct_noise +
-                         0.125 * dcl_grade + 0.125 * dcg_grade)
+                botqc = (0.35 * pct_noise + 0.15 * avail + 0.1 * rms_grade + 0.1 * ratioamp_grade + 
+                         0.1 * ngap_grade + 0.1 * nover_grade + 0.1 * num_spikes_grade)
             
             percqc_list.append(botqc)
             
         # 9. Average score and save
         if not percqc_list:
-             avg_percqc = 0.0
+             score = 0.0
         else:
-            # Average the scores of all components
-            avg_percqc = np.sum(percqc_list) / len(percqc_list)
+            # Median the scores of all components
+            score = np.median(percqc_list)
             
-        kualitas = _check_qc(avg_percqc)
+        kualitas = _check_qc(score)
         
         repo.insert_qc_analysis_result(
             kode, 
             tanggal, 
-            str(round(float(avg_percqc), 2)), 
+            str(round(float(score), 2)), 
             kualitas, 
             tipe, 
             ket
         )
-        logger.info(f"{network}.{kode} ({tipe}) QC ANALYSIS FINISH (Score: {avg_percqc:.2f})")
+        logger.info(f"{network}.{kode} ({tipe}) QC ANALYSIS FINISH (Score: {score:.2f})")
         time.sleep(0.5)
 
     time.sleep(0.5)
