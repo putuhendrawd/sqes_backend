@@ -31,8 +31,19 @@ def get_inventory(inventory_path: str, net: str, sta: str,
                 with warnings.catch_warnings(record=True) as caught_warnings:
                     warnings.simplefilter("always")
                     inv = read_inventory(str(file_path))
+                    
+                    # Collect unique warnings
+                    warning_counts = {}
                     for w in caught_warnings:
-                        logger.warning(f"{filename}: {str(w.message)}")
+                        msg = str(w.message).replace('\n', ' ')
+                        warning_counts[msg] = warning_counts.get(msg, 0) + 1
+                    
+                    # Log each unique warning once
+                    for msg, count in warning_counts.items():
+                        if count > 1:
+                            logger.warning(f"{filename}: {msg} (occurred {count} times)")
+                        else:
+                            logger.warning(f"{filename}: {msg}")
                 break # Found it, stop looking
             except Exception as e:
                 logger.warning(f"Failed to read local inventory {file_path}: {e}")
@@ -54,7 +65,13 @@ def get_inventory(inventory_path: str, net: str, sta: str,
         )
         if len(channel_inv.networks) == 0:
             logger.warning(f"Found inventory for {net}.{sta}, but channel {loc}.{cha} not valid for {time0}")
-            return None
+            # Fall back to selecting without time constraints to get channel metadata
+            channel_inv = inv.select(
+                network=net,
+                station=sta,
+                location=loc,
+                channel=cha
+            )
         return channel_inv
     except Exception as e:
         logger.error(f"Error selecting channel from local inventory for {net}.{sta}: {e}")

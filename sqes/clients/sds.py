@@ -33,8 +33,19 @@ def get_waveforms(client: SDSClient, net: str, sta: str, loc: str,
                         starttime=time0,
                         endtime=time1
                 )
+                
+                # Collect unique warnings
+                warning_counts = {}
                 for w in caught_warnings:
-                    logger.warning(f"{net}.{sta}.{loc_id}.{cha} Stream Warning{str(w.message)}")
+                    msg = str(w.message).replace('\n', ' ')
+                    warning_counts[msg] = warning_counts.get(msg, 0) + 1
+                
+                # Log each unique warning once
+                for msg, count in warning_counts.items():
+                    if count > 1:
+                        logger.warning(f"{net}.{sta}.{loc_id}.{cha} Stream Warning: {msg} (occurred {count} times)")
+                    else:
+                        logger.warning(f"{net}.{sta}.{loc_id}.{cha} Stream Warning: {msg}")
             
             if st.count() > 0:
                 # st.merge(method=1) 

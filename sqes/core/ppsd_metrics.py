@@ -4,7 +4,7 @@ from obspy import Stream, Trace, Inventory
 from obspy.signal import PPSD
 from typing import Optional, cast
 import logging
-
+import warnings
 from obspy.imaging.cm import pqlx
 from sqes.core import models
 
@@ -45,9 +45,23 @@ def _create_ppsd_object(sig: Stream, inventory: Optional[Inventory] = None, npz_
     try:
         for tr in data:
             _id = tr.id
-            ppsds_object = PPSD(tr.stats, inventory)
-            ppsds_object.add(tr)
-            
+            with warnings.catch_warnings(record=True) as caught_warnings:
+                warnings.simplefilter("always")
+                ppsds_object = PPSD(tr.stats, inventory)
+                ppsds_object.add(tr)
+                
+                # Collect unique warnings
+                warning_counts = {}
+                for w in caught_warnings:
+                    msg = str(w.message).replace('\n', ' ')
+                    warning_counts[msg] = warning_counts.get(msg, 0) + 1
+                
+                # Log each unique warning once
+                for msg, count in warning_counts.items():
+                    if count > 1:
+                        logger.warning(f"{_id}: {msg} (occurred {count} times)")
+                    else:
+                        logger.warning(f"{_id}: {msg}")
         if npz_output_path and ppsds_object:
             fname_out = npz_output_path + NPZFNAME.format(_id)
             logger.debug(f"Saving PPSD to {fname_out}")
