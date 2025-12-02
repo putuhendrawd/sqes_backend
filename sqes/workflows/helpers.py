@@ -51,16 +51,18 @@ def setup_paths_and_times(date_str):
 def get_output_paths(basic_config, tahun, tgl, date_str):
     """Creates and returns a dictionary of output paths.
     
+    All paths use YYYY-MM-DD format for consistency.
+    
     Args:
         basic_config: Basic configuration dictionary
-        tahun: Year as integer
+        tahun: Year as integer (unused, kept for compatibility)
         tgl: Date string in YYYY-MM-DD format
-        date_str: Date string in YYYYMMDD format
+        date_str: Date string in YYYYMMDD format (unused, kept for compatibility)
         
     Returns:
         Dictionary with keys: outputPSD, outputPDF, outputsignal, outputmseed
     """
-    outputPSD = os.path.join(basic_config['outputpsd'], str(tahun), date_str)
+    outputPSD = os.path.join(basic_config['outputpsd'], str(tgl))
     outputPDF = os.path.join(basic_config['outputpdf'], str(tgl))
     outputsignal = os.path.join(basic_config['outputsignal'], str(tgl))
     outputmseed = os.path.join(basic_config['outputmseed'], str(tgl))

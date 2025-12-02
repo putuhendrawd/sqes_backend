@@ -598,7 +598,7 @@ The system automatically generates warnings for specific conditions:
 
 **PPSD NPZ files** (`--ppsd`):
 ```
-/your/directory/path/sqes_output/psd_npz/2023/20231215_IA.BBJI.00.BHE.npz
+/your/directory/path/sqes_output/psd_npz/2023-12-15/20231215_IA.BBJI.00.BHE.npz
 ```
 
 **PSD Plots** (auto-generated, PNG format):
