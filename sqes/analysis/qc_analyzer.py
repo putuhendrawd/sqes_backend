@@ -137,11 +137,13 @@ def run_qc_analysis(repo: QCRepository, db_type: str, tanggal: str, station_code
                 # 8. Generate 'keterangan' (details)
                 if pct_below > 20.0:
                     ket.append(f"Cek metadata komponen {komp}")
-                elif ngap1 > 500:
+                elif ngap1 > 5:
                     ket.append(f"Terlalu banyak gap pada komponen {komp}")
+                elif nover > 5:
+                    ket.append(f"Terlalu banyak overlap pada komponen {komp}")
                 elif pct_above > 20 and avail >= 10.0:
                     ket.append(f"Noise tinggi di komponen {komp}")
-                elif num_spikes > 100:  # Adjust threshold as needed
+                elif num_spikes > 25:
                     ket.append(f"Spike berlebihan pada komponen {komp}")
 
                 # Weighted average for this component
@@ -155,9 +157,9 @@ def run_qc_analysis(repo: QCRepository, db_type: str, tanggal: str, station_code
              score = 0.0
         else:
             if 1.0 in percqc_list: # limit to 59 (Poor/Buruk) if any component is not responding
-                score = min(np.median(percqc_list), 59.0)
+                score = min(np.percentile(percqc_list, 25), 59.0)
             else:
-                score = np.median(percqc_list)
+                score = np.percentile(percqc_list, 25)
             
         kualitas = _check_qc(score)
         

@@ -491,7 +491,7 @@ Quality thresholds are based on **Ringler et al. (2015)** 90th percentile standa
 > [!NOTE]
 > Dead Channel Linear (DCL) and Dead Channel GSN (DCG) are computed but used as **binary flags** for sensor malfunction detection, not included in the weighted score calculation.
 > 
-> **DCL threshold**: ≤ 2.25 indicates unresponsive sensor (Grading: Limit: 9.0, Margin: -1.0)  
+> **DCL threshold**: ≤ 2.25 indicates unresponsive sensor 
 > **DCG threshold**: = 1 indicates dead channel (binary flag)
 
 ### Quality Classification
@@ -544,18 +544,18 @@ else:
 
 **Step 3: Station Score Aggregation**
 
-The final station score is the **median** of all component scores, with special handling for degraded components:
+The final station score is the **25th percentile** of all component scores, with special handling for degraded components:
 
 ```python
 if any component has score == 1.0:  # Unresponsive/damaged component
-    station_score = min(median([score_E, score_N, score_Z]), 59.0)
+    station_score = min(np.percentile([score_E, score_N, score_Z], 25), 59.0)
 else:
-    station_score = median([score_E, score_N, score_Z])
+    station_score = np.percentile([score_E, score_N, score_Z], 25)
 ```
 
 > [!NOTE]
-> **Why median instead of mean?**  
-> Using the median makes the system more robust to single-component failures while still reflecting overall station quality. A station with one bad component won't be unfairly penalized if the other two are excellent.
+> **Why 25th percentile?**  
+> Using the 25th percentile (lower quartile) ensures that the station score reflects the quality of the worst-performing component more prominently. This conservative approach aligns with quality control best practices: a station is only as good as its weakest component. The 25th percentile is more sensitive to individual component failures while still considering overall station health.
 
 ### Quality Warnings
 
@@ -564,9 +564,10 @@ The system automatically generates warnings for specific conditions:
 | Condition | Warning Message (Indonesian) |
 |-----------|------------------------------|
 | `pct_below > 20%` | "Cek metadata komponen {X}" - Check component metadata |
-| `gaps > 500` | "Terlalu banyak gap pada komponen {X}" - Too many gaps |
+| `gaps > 5` | "Terlalu banyak gap pada komponen {X}" - Too many gaps |
+| `overlaps > 5` | "Terlalu banyak overlap pada komponen {X}" - Too many overlaps |
 | `pct_above > 20% AND avail >= 10%` | "Noise tinggi di komponen {X}" - High noise |
-| `num_spikes > 100` | "Spike berlebihan pada komponen {X}" - Excessive spikes |
+| `num_spikes > 25` | "Spike berlebihan pada komponen {X}" - Excessive spikes |
 | `availability <= 0%` | "Komponen {X} Mati" - Component dead |
 | `dcg == 1 OR dcl <= 2.25` | "Komponen {X} tidak merespon getaran" - No response to vibration |
 | `0 < rms < 1` | "Komponen {X} Rusak" - Component damaged |
