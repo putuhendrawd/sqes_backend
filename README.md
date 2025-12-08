@@ -565,23 +565,23 @@ else:
 
 ### Quality Warnings
 
-The system automatically generates warnings for specific conditions, evaluated in priority order:
+The system automatically generates warnings for all conditions that match the QC criteria. Multiple warnings can be reported for a single component if it has multiple issues.
 
-| Priority | Condition | Warning Message (Indonesian) |
-|----------|-----------|------------------------------|
+| Warning Type | Condition | Warning Message (Indonesian) |
+|--------------|-----------|------------------------------|
 | **Critical** | `availability <= 0%` | "Komponen {X} Mati" - Component dead |
 | **Critical** | `dcg == 1 OR dcl <= 2.25` | "Komponen {X} tidak merespon getaran" - No response to vibration |
 | **Critical** | `0 < rms < 1` | "Komponen {X} Rusak" - Component damaged |
-| **High** | `pct_below > 20%` | "Cek metadata komponen {X}" - Check component metadata |
-| **High** | `gaps > 5` | "Terlalu banyak gap pada komponen {X}" - Too many gaps |
-| **High** | `overlaps > 5` | "Terlalu banyak overlap pada komponen {X}" - Too many overlaps |
-| **High** | `pct_above > 20% AND avail >= 10%` | "Noise tinggi di komponen {X}" - High noise |
-| **High** | `num_spikes > 25` | "Spike berlebihan pada komponen {X}" - Excessive spikes |
-| **Medium** | `50 <= availability < 97%` | "Availability rendah pada komponen {X}" - Low availability |
-| **Medium** | `0 < availability < 50%` | "Availability sangat rendah pada komponen {X}" - Very low availability |
+| **Quality** | `pct_below > 20%` | "Cek metadata komponen {X}" - Check component metadata |
+| **Quality** | `gaps > 5` | "Terlalu banyak gap pada komponen {X}" - Too many gaps |
+| **Quality** | `overlaps > 5` | "Terlalu banyak overlap pada komponen {X}" - Too many overlaps |
+| **Quality** | `pct_above > 20% AND avail >= 10%` | "Noise tinggi di komponen {X}" - High noise |
+| **Quality** | `num_spikes > 25` | "Spike berlebihan pada komponen {X}" - Excessive spikes |
+| **Availability** | `80 <= availability < 97%` | "Availability rendah pada komponen {X}" - Low availability |
+| **Availability** | `0 < availability < 80%` | "Availability sangat rendah pada komponen {X}" - Very low availability |
 
 > [!NOTE]
-> Warnings are evaluated in priority order. Only the first matching condition generates a warning for each component. Availability warnings are only generated if no higher-priority warnings are triggered.
+> All warning conditions are checked independently. A component can receive multiple warnings if it meets multiple criteria (e.g., both high gaps and high spikes). Critical warnings (dead, unresponsive, damaged) are handled separately with fixed scores before quality metric warnings are evaluated.
 
 ---
 
