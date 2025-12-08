@@ -151,7 +151,7 @@ def run_qc_analysis(repo: QCRepository, db_type: str, tanggal: str, station_code
                     ket.append(f"Spike berlebihan pada komponen {komp}")
                 elif (avail < 97) and (avail >= 50):
                     ket.append(f"Availability rendah pada komponen {komp}")
-                    botqc = max(botqc, 90.0)
+                    botqc = max(botqc, 89.0)
                 elif (avail < 50) and (avail > 0):
                     ket.append(f"Availability sangat rendah pada komponen {komp}")
                     botqc = max(botqc, 59.0)              

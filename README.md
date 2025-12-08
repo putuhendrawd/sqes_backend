@@ -521,7 +521,7 @@ Parameters exceeding limits reduce the grade. The function ensures scores stay w
 
 **Step 2: Component Score Calculation**
 
-For each component (E, N, Z), the algorithm first checks for critical failures, then computes a weighted score:
+For each component (E, N, Z), the algorithm first checks for critical failures, then computes a weighted score with additional availability-based adjustments:
 
 ```python
 # Special cases (override weighted calculation):
@@ -540,6 +540,12 @@ else:
                        0.10 * gaps + 
                        0.10 * overlaps + 
                        0.10 * spikes)
+    
+    # Availability-based score capping
+    if 50 <= availability < 97:
+        component_score = max(component_score, 89.0)  # Cap at "Fair" max
+    elif 0 < availability < 50:
+        component_score = max(component_score, 59.0)  # Cap at "Poor" max
 ```
 
 **Step 3: Station Score Aggregation**
@@ -559,18 +565,23 @@ else:
 
 ### Quality Warnings
 
-The system automatically generates warnings for specific conditions:
+The system automatically generates warnings for specific conditions, evaluated in priority order:
 
-| Condition | Warning Message (Indonesian) |
-|-----------|------------------------------|
-| `pct_below > 20%` | "Cek metadata komponen {X}" - Check component metadata |
-| `gaps > 5` | "Terlalu banyak gap pada komponen {X}" - Too many gaps |
-| `overlaps > 5` | "Terlalu banyak overlap pada komponen {X}" - Too many overlaps |
-| `pct_above > 20% AND avail >= 10%` | "Noise tinggi di komponen {X}" - High noise |
-| `num_spikes > 25` | "Spike berlebihan pada komponen {X}" - Excessive spikes |
-| `availability <= 0%` | "Komponen {X} Mati" - Component dead |
-| `dcg == 1 OR dcl <= 2.25` | "Komponen {X} tidak merespon getaran" - No response to vibration |
-| `0 < rms < 1` | "Komponen {X} Rusak" - Component damaged |
+| Priority | Condition | Warning Message (Indonesian) |
+|----------|-----------|------------------------------|
+| **Critical** | `availability <= 0%` | "Komponen {X} Mati" - Component dead |
+| **Critical** | `dcg == 1 OR dcl <= 2.25` | "Komponen {X} tidak merespon getaran" - No response to vibration |
+| **Critical** | `0 < rms < 1` | "Komponen {X} Rusak" - Component damaged |
+| **High** | `pct_below > 20%` | "Cek metadata komponen {X}" - Check component metadata |
+| **High** | `gaps > 5` | "Terlalu banyak gap pada komponen {X}" - Too many gaps |
+| **High** | `overlaps > 5` | "Terlalu banyak overlap pada komponen {X}" - Too many overlaps |
+| **High** | `pct_above > 20% AND avail >= 10%` | "Noise tinggi di komponen {X}" - High noise |
+| **High** | `num_spikes > 25` | "Spike berlebihan pada komponen {X}" - Excessive spikes |
+| **Medium** | `50 <= availability < 97%` | "Availability rendah pada komponen {X}" - Low availability |
+| **Medium** | `0 < availability < 50%` | "Availability sangat rendah pada komponen {X}" - Very low availability |
+
+> [!NOTE]
+> Warnings are evaluated in priority order. Only the first matching condition generates a warning for each component. Availability warnings are only generated if no higher-priority warnings are triggered.
 
 ---
 
