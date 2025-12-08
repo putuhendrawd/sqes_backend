@@ -134,7 +134,11 @@ def run_qc_analysis(repo: QCRepository, db_type: str, tanggal: str, station_code
                 botqc = 1.0
                 ket.append(f'Komponen {komp} Rusak')
             else:
-                # 8. Generate 'keterangan' (details)
+                # 8. Weighted average for this component
+                botqc = (0.35 * pct_noise + 0.15 * avail + 0.1 * rms_grade + 0.1 * ratioamp_grade + 
+                         0.1 * ngap_grade + 0.1 * nover_grade + 0.1 * num_spikes_grade)
+
+                # Generate 'keterangan' (details)
                 if pct_below > 20.0:
                     ket.append(f"Cek metadata komponen {komp}")
                 elif ngap1 > 5:
@@ -145,14 +149,17 @@ def run_qc_analysis(repo: QCRepository, db_type: str, tanggal: str, station_code
                     ket.append(f"Noise tinggi di komponen {komp}")
                 elif num_spikes > 25:
                     ket.append(f"Spike berlebihan pada komponen {komp}")
-
-                # Weighted average for this component
-                botqc = (0.35 * pct_noise + 0.15 * avail + 0.1 * rms_grade + 0.1 * ratioamp_grade + 
-                         0.1 * ngap_grade + 0.1 * nover_grade + 0.1 * num_spikes_grade)
+                elif (avail < 97) and (avail >= 50):
+                    ket.append(f"Availability rendah pada komponen {komp}")
+                    botqc = max(botqc, 90.0)
+                elif (avail < 50) and (avail > 0):
+                    ket.append(f"Availability sangat rendah pada komponen {komp}")
+                    botqc = max(botqc, 59.0)              
             
+            # Append botqc to list
             percqc_list.append(botqc)
             
-        #9. Average score and save
+        # 9. Average score and save
         if not percqc_list:
              score = 0.0
         else:
