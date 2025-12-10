@@ -1,1 +1,0 @@
-batch.sh: line 33: 3974532 Killed                  nohup timeout -14400 python3 sqes_v3_multiprocessing.py $date verbose > log/m-$name.log 2> error/m-$name.err

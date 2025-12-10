@@ -1,0 +1,34 @@
+name: sqes_backend
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  # --- Core Python ---
+  - python=3.10
+  - pip
+
+  # --- Scientific & Data ---
+  # obspy is the main dependency for all seismology
+  - obspy
+  - pandas=2.0.3
+  - numpy
+  - scipy
+  - matplotlib
+  - requests
+  - sqlalchemy=1.4.51
+  - tqdm
+  - lxml
+
+  # --- Database Connectors ---
+  # For PostgreSQL
+  - psycopg2
+  # For MySQL
+  - mysql-connector-python
+
+  # --- Client Dependencies ---
+  # obspy.clients.fdsn needs requests
+  - requests
+
+  # --- Testing ---
+  - pytest
+  - pytest-mock
