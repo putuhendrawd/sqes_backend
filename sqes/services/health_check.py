@@ -17,7 +17,7 @@ def _censor_config(config: Dict[str, Any]) -> str:
     censored_config = {}
     for key, value in config.items():
         if "password" in str(key).lower() and value:
-            censored_config[key] = f"***{value[-2:]}"
+            censored_config[key] = f"***{value[-1:]}"
         else:
             censored_config[key] = value
     
@@ -33,9 +33,18 @@ def check_configurations():
     
     # --- 1. Load [basic] config ---
     try:
+        logger.info("=" * 60)
+        logger.info("CONFIGURATION CHECK")
+        logger.info("=" * 60)
+        logger.info("")
         logger.info("--- [basic] Configuration ---")
         basic_config = load_config(section='basic')
-        logger.info(_censor_config(basic_config))
+        
+        # Format config nicely
+        for key, value in sorted(basic_config.items()):
+            logger.info(f"  • {key:25s} : {value}")
+        logger.info("")
+        
     except Exception as e:
         logger.error(f"Failed to load [basic] config: {e}", exc_info=True)
         return False # This is a fatal error
@@ -48,7 +57,13 @@ def check_configurations():
         logger.info("--- Checking FDSN Client Connection ---")
         try:
             client_creds = load_config(section='client')
-            logger.info(f"[client] Config: {_censor_config(client_creds)}")
+            
+            # Format credentials nicely
+            for key, value in sorted(client_creds.items()):
+                if "password" in key.lower() and value:
+                    logger.info(f"  • {key:25s} : ***{value[-2:]}")
+                else:
+                    logger.info(f"  • {key:25s} : {value}")
             
             fdsn_client = FDSNClient(
                 client_creds['url'],
@@ -58,10 +73,12 @@ def check_configurations():
             # Perform a simple, fast test query
             # fdsn_client.get_events(starttime=UTCDateTime(2020,1,1,0,0,0), endtime=UTCDateTime(2020,1,1,0,0,1))
             logger.info("✅ FDSN Client connection: OK")
+            logger.info("")
             
         except Exception as e:
             logger.error(f"❌ FDSN Client connection: FAILED")
             logger.error(f"   Error: {e}")
+            logger.info("")
             all_ok = False
     
     # --- 3. Check Database Connection ---
@@ -70,18 +87,26 @@ def check_configurations():
         try:
             db_type = basic_config['use_database']
             db_creds = load_config(section=db_type)
-            logger.info(f"[{db_type}] Config: {_censor_config(db_creds)}")
+            
+            # Format database config nicely
+            for key, value in sorted(db_creds.items()):
+                if "password" in key.lower() and value:
+                    logger.info(f"  • {key:25s} : ***{value[-2:]}")
+                else:
+                    logger.info(f"  • {key:25s} : {value}")
             
             pool = DBPool(**db_creds)
             if not pool.is_db_connected():
                  raise Exception("DBPool.is_db_connected() returned False")
             
             logger.info("✅ Database connection: OK")
+            logger.info("")
             # is_db_connected() logs its own success message
             
         except Exception as e:
             logger.error(f"❌ Database connection: FAILED")
             logger.error(f"   Error: {e}")
+            logger.info("")
             all_ok = False
             
     # --- 4. Check Local Paths ---
