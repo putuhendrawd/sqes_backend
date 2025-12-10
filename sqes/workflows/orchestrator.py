@@ -3,7 +3,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Any, Optional, Dict
 
-from sqes.workflows.daily_processor import run_single_day
+from .daily_processor import run_single_day
 
 logger = logging.getLogger(__name__)
 

@@ -1,7 +1,7 @@
 # sqes/analysis/repository.py
 import logging
 from typing import Optional
-from sqes.services.db_pool import DBPool
+from .db_pool import DBPool
 
 logger = logging.getLogger(__name__)
 

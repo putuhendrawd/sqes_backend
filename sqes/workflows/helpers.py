@@ -5,8 +5,8 @@ import logging
 import multiprocessing
 from obspy import UTCDateTime
 
-from sqes.services.config_loader import load_config
-from sqes.services.file_system import create_directory
+from ..services.config_loader import load_config
+from ..services.file_system import create_directory
 
 logger = logging.getLogger(__name__)
 
@@ -98,3 +98,27 @@ def calculate_process_count(x, base=2):
     # Clamp the value between min and max
     rounded = max(1, min(max_value, max(min_value, rounded_value)))
     return rounded
+
+
+def load_qc_thresholds():
+    """Load QC thresholds from config file with fallback to defaults.
+    
+    This function loads the QC analysis thresholds from the config file.
+    If the config file doesn't exist or the [qc_thresholds] section is missing,
+    it will return the default thresholds.
+    
+    Returns:
+        QCThresholds object with values from config or defaults
+    """
+    from ..services.config_loader import load_qc_thresholds as _load_qc_thresholds
+    
+    try:
+        thresholds = _load_qc_thresholds()
+        logger.debug("Loaded QC thresholds from config")
+        return thresholds
+    except Exception as e:
+        logger.warning(f"Failed to load QC thresholds: {e}. Using defaults.")
+        from ..analysis.models import DEFAULT_THRESHOLDS
+        return DEFAULT_THRESHOLDS
+
+

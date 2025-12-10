@@ -2,7 +2,7 @@ import logging
 from typing import Optional, cast
 from obspy import Stream, Trace, Inventory, UTCDateTime
 from obspy.clients.fdsn import Client as FDSNClient
-from sqes.core import utils
+from ..core import utils
 
 logger = logging.getLogger(__name__)
 

@@ -6,7 +6,7 @@ from typing import Optional, cast
 import logging
 import warnings
 from obspy.imaging.cm import pqlx
-from sqes.core import models
+from . import models
 
 logger = logging.getLogger(__name__)
 

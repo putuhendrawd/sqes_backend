@@ -5,8 +5,8 @@ from typing import Dict, Any
 from obspy import UTCDateTime
 from obspy.clients.fdsn import Client as FDSNClient
 from obspy.clients.filesystem.sds import Client as SDSClient
-from sqes.services.config_loader import load_config
-from sqes.services.db_pool import DBPool
+from .config_loader import load_config
+from .db_pool import DBPool
 
 logger = logging.getLogger(__name__)
 
@@ -117,5 +117,68 @@ def check_configurations():
                 all_ok = False
             else:
                 logger.info(f"✅ Local 'inventory_path': OK ({inventory_path})")
+
+    # --- 5. Check QC Thresholds ---
+    logger.info("--- QC Analysis Thresholds ---")
+    try:
+        from .config_loader import load_qc_thresholds
+        from ..analysis.models import DEFAULT_THRESHOLDS
+        from configparser import ConfigParser
+        import os
+        
+        # Load thresholds that will be used
+        thresholds = load_qc_thresholds()
+        
+        # Check if config file has [qc_thresholds] section
+        module_path = os.path.dirname(os.path.abspath(__file__))
+        config_path = os.path.join(module_path, '..', '..', 'config', 'config.ini')
+        
+        has_custom_section = False
+        custom_params = []
+        
+        if os.path.exists(config_path):
+            parser = ConfigParser()
+            parser.read(config_path)
+            if parser.has_section('qc_thresholds'):
+                has_custom_section = True
+                custom_params = parser.options('qc_thresholds')
+        
+        if has_custom_section:
+            logger.info(f"✅ Using QC thresholds from config ({len(custom_params)} custom parameters)")
+        else:
+            logger.info("ℹ️  Using default QC thresholds (no [qc_thresholds] section in config)")
+        
+        # Show all threshold parameters
+        logger.info("   All QC threshold parameters:")
+        
+        all_params = sorted(vars(DEFAULT_THRESHOLDS).keys())
+        custom_set = set(custom_params)
+        
+        for param in all_params:
+            current_val = getattr(thresholds, param, None)
+            default_val = getattr(DEFAULT_THRESHOLDS, param, None)
+            
+            # Mark if it's customized
+            if param in custom_set and current_val != default_val:
+                logger.info(f"   • {param} = {current_val} [CUSTOM] (default: {default_val})")
+            elif param in custom_set:
+                # In config but same as default
+                logger.info(f"   • {param} = {current_val} [in config, same as default]")
+            else:
+                # Using default
+                logger.info(f"   • {param} = {current_val}")
+        
+        # Summary
+        if has_custom_section:
+            custom_count = sum(1 for p in custom_set if getattr(thresholds, p, None) != getattr(DEFAULT_THRESHOLDS, p, None))
+            logger.info(f"   Summary: {custom_count} customized, {len(all_params) - custom_count} using defaults")
+        else:
+            logger.info("   To customize, add [qc_thresholds] section to config.ini")
+            logger.info("   See config/sample_config.ini for all available parameters")
+
+        
+    except Exception as e:
+        logger.warning(f"⚠️  Could not check QC thresholds: {e}")
+        logger.warning("   This is not critical - defaults will be used during processing")
 
     return all_ok

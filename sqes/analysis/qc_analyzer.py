@@ -2,65 +2,14 @@
 import time
 import logging
 import numpy as np
-from dataclasses import dataclass
 from typing import Optional, List, Tuple
-from sqes.services.repository import QCRepository
+from ..services.repository import QCRepository
+from .models import QCThresholds, DEFAULT_THRESHOLDS
 
 logger = logging.getLogger(__name__)
 
-@dataclass
-class QCThresholds:
-    """
-    Scientific thresholds for QC grading based on Ringler et al. (2015) 
-    90th percentile standards and QuARG guidelines.
-    """
-    # Metric limits (acceptable values)
-    rms_limit: float = 5000.0
-    ratioamp_limit: float = 1.01
-    gap_limit: float = 0.00274  # QuARG
-    overlap_limit: float = 0.0
-    spike_limit: float = 0.0
-    
-    # Margins (degradation allowance before reaching 0 score)
-    rms_margin: float = 7500.0
-    ratioamp_margin: float = 2.02
-    gap_margin: float = 0.992  # QuARG
-    overlap_margin: float = 1.25
-    spike_margin: float = 25.0
-    
-    # Warning thresholds
-    pct_below_warn: float = 20.0
-    pct_above_warn: float = 20.0
-    gap_count_warn: int = 5
-    overlap_count_warn: int = 5
-    spike_count_warn: int = 25
-    avail_good: float = 97.0
-    avail_fair: float = 80.0
-    avail_min_for_noise_check: float = 10.0
-    
-    # Dead channel thresholds (QuARG)
-    dcl_dead: float = 2.25
-    rms_damaged_max: float = 1.0
-    
-    # Score caps
-    fair_max_score: float = 89.0
-    poor_max_score: float = 59.0
-    
-    # Weights (must sum to 1.0)
-    weight_noise: float = 0.35
-    weight_availability: float = 0.15
-    weight_rms: float = 0.10
-    weight_ratioamp: float = 0.10
-    weight_gaps: float = 0.10
-    weight_overlaps: float = 0.10
-    weight_spikes: float = 0.10
 
-
-# Default threshold instance (can be overridden for testing)
-DEFAULT_THRESHOLDS = QCThresholds()
-
-
-def _calculate_metric_grade(value: float, threshold: float, margin: float) -> float:
+def calculate_metric_grade(value: float, threshold: float, margin: float) -> float:
     """
     Calculate a grade (0-100) for a QC metric based on linear degradation.
     
@@ -85,7 +34,7 @@ def _calculate_metric_grade(value: float, threshold: float, margin: float) -> fl
     return max(0.0, min(100.0, grade))
 
 
-def _validate_qc_metrics(
+def validate_qc_metrics(
     rms: float, ratioamp: float, avail: float, 
     ngap1: int, nover: int, num_spikes: int,
     pct_above: float, pct_below: float, dcl: float, dcg: float,
@@ -129,7 +78,7 @@ def _validate_qc_metrics(
     return issues
 
 
-def _determine_warning(
+def determine_warning(
     component: str, avail: float, pct_below: float, pct_above: float,
     ngap1: int, nover: int, num_spikes: int, 
     thresholds: QCThresholds = DEFAULT_THRESHOLDS
@@ -175,7 +124,7 @@ def _determine_warning(
     return warnings
 
 
-def _check_qc(score: float) -> str:
+def check_qc(score: float) -> str:
     """
     Assign a quality classification string based on the final score.
     
@@ -194,7 +143,7 @@ def _check_qc(score: float) -> str:
     else:
         return 'Buruk'
 
-def _aggregate_station_score(component_scores, method='p25'):
+def aggregate_station_score(component_scores, method='p25'):
     """
     Aggregate component scores to station score.
     
@@ -204,6 +153,7 @@ def _aggregate_station_score(component_scores, method='p25'):
         'hmean': Harmonic mean (penalizes low values more)
         'gmean': Geometric mean (balanced)
         'min': Minimum component (most conservative)
+        'median' : Median component (middle value)
     """
     if method == 'p25':
         return np.percentile(component_scores, 25)
@@ -217,6 +167,8 @@ def _aggregate_station_score(component_scores, method='p25'):
         return gmean(component_scores)
     elif method == 'min':
         return np.min(component_scores)
+    elif method == 'median':
+        return np.median(component_scores)
     else:
         raise ValueError(f"Unknown method: {method}")
 
@@ -239,7 +191,7 @@ def run_qc_analysis(
         db_type: Database type ('mysql' or 'postgresql')
         tanggal: Date string (YYYYMMDD)
         station_code: Station code to analyze
-        thresholds: QCThresholds configuration (optional)
+        thresholds: QCThresholds configuration (optional, uses defaults if not provided)
     """
     # 1. Flush any existing analysis data for this station/day
     try:
@@ -309,7 +261,7 @@ def run_qc_analysis(
                 continue
             
             # 6. Validate metrics
-            validation_issues = _validate_qc_metrics(
+            validation_issues = validate_qc_metrics(
                 rms, ratioamp, avail, ngap1, nover, num_spikes,
                 pct_above, pct_below, dcl, dcg, kode, komp
             )
@@ -323,7 +275,7 @@ def run_qc_analysis(
             
             # RMS grading
             if rms > thresholds.rms_damaged_max:
-                rms_grade = _calculate_metric_grade(abs(rms), thresholds.rms_limit, thresholds.rms_margin)
+                rms_grade = calculate_metric_grade(abs(rms), thresholds.rms_limit, thresholds.rms_margin)
             else:
                 rms_grade = 0.0  # Bad sensor
             
@@ -333,10 +285,10 @@ def run_qc_analysis(
                 avail = 100.0
             
             # Other metric grading
-            ratioamp_grade = _calculate_metric_grade(ratioamp, thresholds.ratioamp_limit, thresholds.ratioamp_margin)
-            ngap_grade = _calculate_metric_grade(ngap1, thresholds.gap_limit, thresholds.gap_margin)
-            nover_grade = _calculate_metric_grade(nover, thresholds.overlap_limit, thresholds.overlap_margin)
-            num_spikes_grade = _calculate_metric_grade(num_spikes, thresholds.spike_limit, thresholds.spike_margin)
+            ratioamp_grade = calculate_metric_grade(ratioamp, thresholds.ratioamp_limit, thresholds.ratioamp_margin)
+            ngap_grade = calculate_metric_grade(ngap1, thresholds.gap_limit, thresholds.gap_margin)
+            nover_grade = calculate_metric_grade(nover, thresholds.overlap_limit, thresholds.overlap_margin)
+            num_spikes_grade = calculate_metric_grade(num_spikes, thresholds.spike_limit, thresholds.spike_margin)
             
             # Noise percentage (inside NHNM/NLNM bounds)
             pct_noise = 100.0 - pct_above - pct_below
@@ -367,7 +319,7 @@ def run_qc_analysis(
                 )
                 
                 # Determine all warning messages
-                warnings = _determine_warning(
+                warnings = determine_warning(
                     komp, avail, pct_below, pct_above, 
                     ngap1, nover, num_spikes, thresholds
                 )
@@ -405,12 +357,12 @@ def run_qc_analysis(
             # Use 25th percentile (conservative, reflects worst-performing component)
             # If any component is unresponsive/damaged (score=1.0), cap at Poor category
             if 1.0 in percqc_list:
-                score = min(_aggregate_station_score(percqc_list, 'p25'), thresholds.poor_max_score)
+                score = min(aggregate_station_score(percqc_list, 'p25'), thresholds.poor_max_score)
             else:
-                score = _aggregate_station_score(percqc_list, 'p25')
+                score = aggregate_station_score(percqc_list, 'p25')
         
         # 10. Classify quality and store results
-        kualitas = _check_qc(score)
+        kualitas = check_qc(score)
         
         repo.insert_qc_analysis_result(
             kode,

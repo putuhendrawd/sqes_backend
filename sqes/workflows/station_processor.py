@@ -5,12 +5,12 @@ from obspy import UTCDateTime, Trace
 from typing import Optional, cast
 from obspy.clients.fdsn import Client as FDSNClient
 from obspy.clients.filesystem.sds import Client as SDSClient
-from sqes.services.db_pool import DBPool
-from sqes.services.logging_config import setup_worker_logging
-from sqes.services.repository import QCRepository
-from sqes.analysis import qc_analyzer
-from sqes.core import basic_metrics, ppsd_metrics, models, utils
-from sqes.clients import fdsn, sds, local
+from ..services.db_pool import DBPool
+from ..services.logging_config import setup_worker_logging
+from ..services.repository import QCRepository
+from ..analysis import qc_analyzer
+from ..core import basic_metrics, ppsd_metrics, models, utils
+from ..clients import fdsn, sds, local
 
 def _handle_timeout(signum, frame):
     """Timeout handler for worker processes."""
@@ -28,7 +28,8 @@ def process_station_data(sta_tuple,
                          pdf_trigger: bool,
                          mseed_trigger: bool, 
                          log_level: int,
-                         log_file_path: str = None):
+                         log_file_path: str = None,
+                         qc_thresholds = None):
     """
     This is the main worker function that runs in a separate process.
     It processes all components (e.g., E,N,Z or 1,2,Z) for a single station.
@@ -276,7 +277,11 @@ def process_station_data(sta_tuple,
     # --- 9. Run QC Analysis for this station ---
     logger.info(f"PROCESS FINISH. Running final analysis...")
     try:
-        qc_analyzer.run_qc_analysis(repo, basic_config['use_database'], tgl, kode)
+        if qc_thresholds is not None:
+            qc_analyzer.run_qc_analysis(repo, basic_config['use_database'], tgl, kode, qc_thresholds)
+        else:
+            # Fallback to defaults if not provided
+            qc_analyzer.run_qc_analysis(repo, basic_config['use_database'], tgl, kode)
     except Exception as e:
         logger.error(f"QC Analysis failed for {kode}: {e}")
         

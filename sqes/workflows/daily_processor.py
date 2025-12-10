@@ -6,15 +6,16 @@ from functools import partial
 from datetime import datetime
 from typing import Any, Optional, Dict
 
-from sqes.services.db_pool import DBPool
-from sqes.services.repository import QCRepository
-from sqes.workflows.station_processor import process_station_data
-from sqes.analysis import qc_analyzer
-from sqes.workflows.helpers import (
+from ..services.db_pool import DBPool
+from ..services.repository import QCRepository
+from .station_processor import process_station_data
+from ..analysis import qc_analyzer
+from .helpers import (
     get_common_configs,
     setup_paths_and_times,
     get_output_paths,
-    calculate_process_count
+    calculate_process_count,
+    load_qc_thresholds
 )
 
 logger = logging.getLogger(__name__)
@@ -55,6 +56,10 @@ def run_single_day(date_str: str, ppsd: bool, flush: bool, mseed: bool,
 
     # This loop is to catch incomplete processing
     run_trigger = 1 
+    
+    # Load QC thresholds once for the entire workflow
+    qc_thresholds = load_qc_thresholds()
+    logger.debug("QC thresholds loaded for workflow")
     
     # If a station list is provided, we *never* loop. We just run once.
     if stations:
@@ -122,7 +127,8 @@ def run_single_day(date_str: str, ppsd: bool, flush: bool, mseed: bool,
                 pdf_trigger=ppsd,
                 mseed_trigger=mseed,
                 log_level=log_level,
-                log_file_path=log_file_path
+                log_file_path=log_file_path,
+                qc_thresholds=qc_thresholds
             )
             with multiprocessing.Pool(processes=processes_req) as pool:
                 pool.map(process_func, data)
@@ -146,7 +152,7 @@ def run_single_day(date_str: str, ppsd: bool, flush: bool, mseed: bool,
                 for sta in data_stragglers:
                     kode_qc = sta[0]
                     logger.debug(f"Running QC Analysis for straggler: {kode_qc}")
-                    qc_analyzer.run_qc_analysis(repo, db_type, tgl, kode_qc)
+                    qc_analyzer.run_qc_analysis(repo, db_type, tgl, kode_qc, qc_thresholds)
             else:
                 logger.info(f"No stragglers found.")
         
@@ -154,7 +160,7 @@ def run_single_day(date_str: str, ppsd: bool, flush: bool, mseed: bool,
             for sta in data_stragglers:
                 kode_qc = sta[0]
                 logger.debug(f"Running QC Analysis for straggler: {kode_qc}")
-                qc_analyzer.run_qc_analysis(repo, db_type, tgl, kode_qc)
+                qc_analyzer.run_qc_analysis(repo, db_type, tgl, kode_qc, qc_thresholds)
         else:
             logger.info(f"No stragglers found.")
             
