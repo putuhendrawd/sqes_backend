@@ -10,20 +10,6 @@ from .db_pool import DBPool
 
 logger = logging.getLogger(__name__)
 
-def _censor_config(config: Dict[str, Any]) -> str:
-    """
-    Takes a config dictionary, censors 'password', and returns a formatted JSON string.
-    """
-    censored_config = {}
-    for key, value in config.items():
-        if "password" in str(key).lower() and value:
-            censored_config[key] = f"***{value[-1:]}"
-        else:
-            censored_config[key] = value
-    
-    # Return as a pretty-printed JSON string
-    return json.dumps(censored_config, indent=2)
-
 def check_configurations():
     """
     Loads all configs, prints them, and checks all external connections.
@@ -61,7 +47,7 @@ def check_configurations():
             # Format credentials nicely
             for key, value in sorted(client_creds.items()):
                 if "password" in key.lower() and value:
-                    logger.info(f"  • {key:25s} : ***{value[-2:]}")
+                    logger.info(f"  • {key:25s} : *******{value[-1:]}")
                 else:
                     logger.info(f"  • {key:25s} : {value}")
             
@@ -71,7 +57,7 @@ def check_configurations():
                 password=client_creds.get('password')
             )
             # Perform a simple, fast test query
-            # fdsn_client.get_events(starttime=UTCDateTime(2020,1,1,0,0,0), endtime=UTCDateTime(2020,1,1,0,0,1))
+            fdsn_client.get_events(starttime=UTCDateTime(2020,1,1,0,0,0), endtime=UTCDateTime(2020,1,1,0,0,1))
             logger.info("✅ FDSN Client connection: OK")
             logger.info("")
             
@@ -91,7 +77,7 @@ def check_configurations():
             # Format database config nicely
             for key, value in sorted(db_creds.items()):
                 if "password" in key.lower() and value:
-                    logger.info(f"  • {key:25s} : ***{value[-2:]}")
+                    logger.info(f"  • {key:25s} : *******{value[-1:]}")
                 else:
                     logger.info(f"  • {key:25s} : {value}")
             
