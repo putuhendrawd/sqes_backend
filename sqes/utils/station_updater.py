@@ -1,6 +1,7 @@
 import logging
 import json
 import re
+import math
 import requests
 import pandas as pd
 from typing import Dict, Any
@@ -157,13 +158,32 @@ def update_station_table(db_type: str, db_creds: Dict[str, Any], update_url: str
                 updates = {}
 
                 # Check coordinates (longitude, latitude)
+                # Use math.isclose to compare floats to avoid false positives due to precision
                 new_longitude = json_station_data['geometry'].get('coordinates', [None, None])[0]
                 new_latitude = json_station_data['geometry'].get('coordinates', [None, None])[1]
                 
-                if new_longitude is not None and new_longitude != db_station_row.get('longitude'):
-                    updates['longitude'] = new_longitude
-                if new_latitude is not None and new_latitude != db_station_row.get('latitude'):
-                    updates['latitude'] = new_latitude
+                db_long = db_station_row.get('longitude')
+                db_lat = db_station_row.get('latitude')
+
+                # Check Longitude
+                if new_longitude is not None:
+                    try:
+                        # Convert to float to handle Decimal types from DB
+                        if db_long is None or not math.isclose(float(new_longitude), float(db_long), abs_tol=1e-5):
+                            updates['longitude'] = new_longitude
+                    except (ValueError, TypeError):
+                        # If conversion fails, fallback to simple inequality
+                        if new_longitude != db_long:
+                             updates['longitude'] = new_longitude
+
+                # Check Latitude
+                if new_latitude is not None:
+                    try:
+                        if db_lat is None or not math.isclose(float(new_latitude), float(db_lat), abs_tol=1e-5):
+                            updates['latitude'] = new_latitude
+                    except (ValueError, TypeError):
+                         if new_latitude != db_lat:
+                            updates['latitude'] = new_latitude
 
                 # Check other properties
                 field_map = {
@@ -208,21 +228,21 @@ def update_station_table(db_type: str, db_creds: Dict[str, Any], update_url: str
     logger.info("Synchronizing station codes across related tables...")
     try:
         # Get station codes from all tables
-        stations_codes = [row[0] for row in repo.get_station_codes_from_table('stations')]
-        dominant_codes = [row[0] for row in repo.get_station_codes_from_table('stations_dominant_data_quality')]
-        site_quality_codes = [row[0] for row in repo.get_station_codes_from_table('stations_site_quality')]
-        visit_codes = [row[0] for row in repo.get_station_codes_from_table('stations_visit')]
+        stations_codes = list(set([row[0] for row in repo.get_station_codes_from_table('stations')]))
+        dominant_codes = list(set([row[0] for row in repo.get_station_codes_from_table('stations_dominant_data_quality')]))
+        site_quality_codes = list(set([row[0] for row in repo.get_station_codes_from_table('stations_site_quality')]))
+        visit_codes = list(set([row[0] for row in repo.get_station_codes_from_table('stations_visit')]))
 
-        logger.info(f"Stations in main table: {len(stations_codes)} (unique: {len(set(stations_codes))})")
+        logger.info(f"Unique stations in main table: {len(stations_codes)}")
         
         # Find missing stations
         stations_not_in_dominant = list(set(stations_codes) - set(dominant_codes))
         stations_not_in_site_quality = list(set(stations_codes) - set(site_quality_codes))
         stations_not_in_visit = list(set(stations_codes) - set(visit_codes))
 
-        logger.info(f"Stations in dominant_data_quality: {len(dominant_codes)}, missing: {len(stations_not_in_dominant)}")
-        logger.info(f"Stations in site_quality: {len(site_quality_codes)}, missing: {len(stations_not_in_site_quality)}")
-        logger.info(f"Stations in visit: {len(visit_codes)}, missing: {len(stations_not_in_visit)}")
+        logger.info(f"Unique stations in dominant_data_quality: {len(dominant_codes)}, missing: {len(stations_not_in_dominant)}")
+        logger.info(f"Unique stations in site_quality: {len(site_quality_codes)}, missing: {len(stations_not_in_site_quality)}")
+        logger.info(f"Unique stations in visit: {len(visit_codes)}, missing: {len(stations_not_in_visit)}")
 
         # Sync Process
         total_sync_count = 0
