@@ -210,7 +210,7 @@ if __name__ == "__main__":
     if use_db and args.sensor_update:
         logger.info("Running sensor table update...")
         try:
-            from sqes.services import sensor_updater
+            from sqes.utils import sensor_updater
             
             db_type = basic_config['use_database']
             db_creds = load_config(section=db_type)
