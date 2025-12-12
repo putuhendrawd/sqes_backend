@@ -313,3 +313,110 @@ class QCRepository:
             
         self.pool.execute(query, args=args, commit=True)
         logger.debug(f"Inserted analysis result for {code} on {date}")
+
+    # --- Station Management Methods ---
+
+    def get_all_stations_basic(self):
+        """Fetches basic station information (code, latitude, longitude)."""
+        if self.db_type == 'postgresql':
+            query = "SELECT code, latitude, longitude, network, province, location, upt, digitizer_type, communication_type FROM stations"
+        else:  # mysql
+            query = "SELECT kode_sensor AS code, latitude, longitude FROM tb_slmon"
+        return self.pool.execute(query)
+
+    def insert_station(self, station_data: dict):
+        """Inserts a new station into the stations table."""
+        if self.db_type == 'postgresql':
+            query = """
+                INSERT INTO stations (code, network, latitude, longitude, province, location, upt, digitizer_type, communication_type)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
+            args = (
+                station_data['code'],
+                station_data.get('network'),
+                station_data['latitude'],
+                station_data['longitude'],
+                station_data.get('province'),
+                station_data.get('location'),
+                station_data.get('upt'),
+                station_data.get('digitizer_type'),
+                station_data.get('communication_type')
+            )
+            self.pool.execute(query, args=args, commit=True)
+            logger.debug(f"Inserted new station: {station_data['code']}")
+        else:
+            logger.warning("insert_station is only supported for PostgreSQL")
+
+    def update_station(self, code: str, updates: dict):
+        """Updates an existing station with the provided field updates."""
+        if self.db_type == 'postgresql':
+            if not updates:
+                logger.debug(f"No updates provided for station {code}")
+                return
+            
+            # Dynamically build the SET clause
+            set_clause = ", ".join([f"{key} = %s" for key in updates.keys()])
+            query = f"UPDATE stations SET {set_clause} WHERE code = %s"
+            
+            # Parameters in order: update values + station code
+            args = tuple(updates.values()) + (code,)
+            
+            self.pool.execute(query, args=args, commit=True)
+            logger.debug(f"Updated station {code} with fields: {list(updates.keys())}")
+        else:
+            logger.warning("update_station is only supported for PostgreSQL")
+
+    def get_station_codes_from_table(self, table_name: str):
+        """Fetches station codes from a specific table."""
+        if self.db_type == 'postgresql':
+            query = f"SELECT code FROM {table_name}"
+            return self.pool.execute(query)
+        else:
+            logger.warning(f"get_station_codes_from_table is only supported for PostgreSQL")
+            return []
+
+    def insert_station_into_table(self, table_name: str, station_code: str):
+        """Inserts a station code into a specific table."""
+        if self.db_type == 'postgresql':
+            query = f"INSERT INTO {table_name} (code) VALUES (%s)"
+            self.pool.execute(query, args=(station_code,), commit=True)
+            logger.debug(f"Inserted station {station_code} into {table_name}")
+        else:
+            logger.warning(f"insert_station_into_table is only supported for PostgreSQL")
+
+    def delete_sensor_data_for_stations(self, station_codes: list):
+        """Deletes sensor data for a list of station codes."""
+        if self.db_type == 'postgresql':
+            if not station_codes:
+                logger.debug("No station codes provided for sensor deletion")
+                return
+            
+            placeholders = ', '.join(['%s'] * len(station_codes))
+            query = f"DELETE FROM stations_sensor WHERE code IN ({placeholders})"
+            self.pool.execute(query, args=tuple(station_codes), commit=True)
+            logger.debug(f"Deleted sensor data for {len(station_codes)} stations")
+        else:
+            logger.warning("delete_sensor_data_for_stations is only supported for PostgreSQL")
+
+    def bulk_insert_sensor_data(self, sensor_records: list):
+        """Bulk inserts sensor data records."""
+        if self.db_type == 'postgresql':
+            if not sensor_records:
+                logger.debug("No sensor records to insert")
+                return
+            
+            query = """
+                INSERT INTO stations_sensor (code, location, channel, sensor)
+                VALUES (%s, %s, %s, %s)
+            """
+            # Prepare all records as tuples
+            args_list = [
+                (record['code'], record['location'], record['channel'], record['sensor'])
+                for record in sensor_records
+            ]
+            
+            # Use executemany for bulk insert
+            self.pool.executemany(query, args_list, commit=True)
+            logger.debug(f"Bulk inserted {len(sensor_records)} sensor records")
+        else:
+            logger.warning("bulk_insert_sensor_data is only supported for PostgreSQL")

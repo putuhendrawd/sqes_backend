@@ -2,9 +2,10 @@ import logging
 import requests
 import pandas as pd
 from typing import Dict, Any
-from sqlalchemy import create_engine, text
 from io import StringIO
-from urllib.parse import quote_plus
+
+from sqes.services.db_pool import DBPool
+from sqes.services.repository import QCRepository
 
 logger = logging.getLogger(__name__)
 
@@ -16,45 +17,44 @@ def update_sensor_table(db_type: str, db_creds: Dict[str, Any], update_url: str)
         logger.error(f"Sensor update is only supported for 'postgresql', not '{db_type}'. Skipping.")
         return
 
-    # 1. Create SQLAlchemy engine
+    # 1. Create database connection pool and repository
     try:
-        db_creds.pop('db_type', None) 
-        db_creds['dbname'] = db_creds.pop('database', None) 
-        
-        user = quote_plus(db_creds['user'])
-        password = quote_plus(db_creds['password'])
-        host = db_creds['host']
-        port = db_creds['port']
-        dbname = db_creds['dbname']
-        
-        url = f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{dbname}"
-        
-        engine = create_engine(url)
+        pool = DBPool(
+            db_type=db_type,
+            host=db_creds.get('host'),
+            port=db_creds.get('port'),
+            user=db_creds.get('user'),
+            password=db_creds.get('password'),
+            database=db_creds.get('database'),
+            pool_size=db_creds.get('pool_size', 3)
+        )
+        repo = QCRepository(pool, db_type)
     except Exception as e:
-        logger.error(f"Failed to create SQLAlchemy engine: {e}", exc_info=True)
+        logger.error(f"Failed to create database connection: {e}", exc_info=True)
         return
 
     # 2. Get station list from the 'stations' table
     try:
-        stations_db = pd.read_sql('select code, latitude, longitude from stations', con=engine)
+        stations_result = repo.get_all_stations_basic()
+        # Extract just the station codes
+        station_codes = [row[0] for row in stations_result]
             
     except Exception as e:
         logger.error(f"Failed to read 'stations' table: {e}. Is table missing?", exc_info=True)
-        engine.dispose()
         return
 
     # 3. Loop, scrape, and build the DataFrame
     sensor_df = pd.DataFrame(columns=['code','location','channel','sensor'])
-    total_stations = len(stations_db['code'].tolist())
+    total_stations = len(station_codes)
     logger.info(f"Starting sensor metadata update for {total_stations} stations...")
     
     success_count = 0
     error_count = 0
     
-    for idx, station in enumerate(stations_db['code'].tolist(), 1):
+    for idx, station in enumerate(station_codes, 1):
         try:
             # Log progress every 10 stations
-            if idx % 10 == 0 or idx == 1:
+            if idx % 50 == 0 or idx == 1:
                 logger.info(f"Progress: {idx}/{total_stations} stations processed ({success_count} successful, {error_count} errors)")
             
             url = update_url.format(station_code=station)
@@ -84,58 +84,33 @@ def update_sensor_table(db_type: str, db_creds: Dict[str, Any], update_url: str)
     # 4. Clean and write to database
     if sensor_df.empty:
         logger.info("No sensor data found to update.")
-        engine.dispose()
         return
 
     sensor_df = sensor_df[sensor_df.sensor != "xxx"] # Remove unavailable
     sensor_df = sensor_df.drop_duplicates()
-    
-    # --- THIS IS THE NEW LOGIC ---
     
     # Get a list of the unique station codes we just scraped
     unique_codes_scraped = sensor_df['code'].unique().tolist()
     
     if not unique_codes_scraped:
         logger.info("No valid sensor data was scraped. Database is unchanged.")
-        engine.dispose()
         return
 
     logger.info(f"Updating {len(unique_codes_scraped)} stations in 'stations_sensor' table...")
     
     try:
-        with engine.begin() as conn:
-            
-            # 1. Create named parameters: [":p1", ":p2", ":p3"]
-            named_params = [f":p{i}" for i in range(len(unique_codes_scraped))]
-            
-            # 2. Create the placeholder string: "(:p1, :p2, :p3)"
-            placeholders = f"({', '.join(named_params)})"
-            
-            # 3. Create the SQL DELETE statement using the named params
-            sql_delete_query = text(
-                f"DELETE FROM stations_sensor WHERE code IN {placeholders}"
-            )
-            
-            # 4. Create the parameters dictionary: {"p1": "AAFM", "p2": "BBJI", ...}
-            params_dict = {f"p{i}": code for i, code in enumerate(unique_codes_scraped)}
-            
-            # 5. Execute the DELETE with the dictionary
-            logger.debug(f"Deleting old entries for {len(unique_codes_scraped)} stations...")
-            conn.execute(sql_delete_query, params_dict)
-            
-            # 6. Append the new data to the table.
-            logger.debug(f"Appending {len(sensor_df)} new sensor entries...")
-            sensor_df.to_sql(
-                'stations_sensor',
-                con=conn,
-                if_exists='append', 
-                index=False,
-                method='multi' # Use 'multi' for stable inserts
-            )
+        # Delete old entries for the scraped stations
+        logger.debug(f"Deleting old entries for {len(unique_codes_scraped)} stations...")
+        repo.delete_sensor_data_for_stations(unique_codes_scraped)
+        
+        # Convert DataFrame to list of dictionaries for bulk insert
+        sensor_records = sensor_df.to_dict('records')
+        
+        # Bulk insert the new data
+        logger.debug(f"Inserting {len(sensor_records)} new sensor entries...")
+        repo.bulk_insert_sensor_data(sensor_records)
         
         logger.info(f"Successfully updated sensor data for {len(unique_codes_scraped)} stations.")
             
     except Exception as e:
         logger.error(f"Failed to write sensor data to database: {e}", exc_info=True)
-    finally:
-        engine.dispose()
