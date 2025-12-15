@@ -56,15 +56,31 @@ def get_inventory(client: FDSNClient, net: str, sta: str,
     Attempts to download inventory for a specific, known channel from FDSN.
     """
     try:
-        inv = client.get_stations(
-            network=net, 
-            station=sta, 
-            location=loc, 
-            channel=cha, 
-            level="response",
-            starttime=time0 # Use time0 to get the correct epoch
-        )
-        return inv
+        with warnings.catch_warnings(record=True) as caught_warnings:
+            warnings.simplefilter("always")
+            inv = client.get_stations(
+                network=net, 
+                station=sta, 
+                location=loc, 
+                channel=cha, 
+                level="response",
+                starttime=time0 # Use time0 to get the correct epoch
+            )
+
+            # Collect unique warnings
+            warning_counts = {}
+            for w in caught_warnings:
+                msg = str(w.message).replace('\n', ' ')
+                warning_counts[msg] = warning_counts.get(msg, 0) + 1
+            
+            # Log each unique warning once
+            for msg, count in warning_counts.items():
+                if count > 1:
+                    logger.warning(f"{net}.{sta}.{loc}.{cha} Inventory Warning: {msg} (occurred {count} times)")
+                else:
+                    logger.warning(f"{net}.{sta}.{loc}.{cha} Inventory Warning: {msg}")
+            
+            return inv
     except Exception as e:
         logger.warning(f"Could not get inventory for {net}.{sta}.{loc}.{cha}: {e}")
         return None
