@@ -375,6 +375,7 @@ chmod +x sqes_cli.py
 | `-d, --date YYYYMMDD` | Process a single date |
 | `-r, --date-range START END` | Process a date range (inclusive) |
 | `-s, --station STA [STA ...]` | Process specific station codes |
+| `-n, --network NET [NET ...]` | Process specific network codes |
 | `--ppsd` | Save PPSD matrices as `.npz` files |
 | `--mseed` | Save downloaded waveforms as MiniSEED |
 | `-f, --flush` | Flush existing data (only with `--date`) |
@@ -394,6 +395,21 @@ chmod +x sqes_cli.py
 **Process multiple stations for a week:**
 ```bash
 ./sqes_cli.py --date-range 20231201 20231207 -s BBJI GSI TNTI LUWI -v
+```
+
+**Process specific network:**
+```bash
+./sqes_cli.py --date 20231215 --network IA -v
+```
+
+**Process multiple networks:**
+```bash
+./sqes_cli.py --date 20231215 --network IA II -v
+```
+
+**Process specific stations filtering by network:**
+```bash
+./sqes_cli.py --date 20231215 -s BBJI GSI --network IA -v
 ```
 
 **Full processing with all outputs:**

@@ -51,6 +51,12 @@ Examples:
   # Run specific stations with INFO level
   ./sqes_cli.py --date-range 20230101 20230103 -s BBJI GSI -v
   
+  # Run specific network with INFO level
+  ./sqes_cli.py --date 20230101 -n IA -v
+
+  # Run specific stations and networks with INFO level (will check if stations are in networks)
+  ./sqes_cli.py --date 20230101 -s BBJI GSI -n IA II -v
+
   # Run a single day and flush the database
   ./sqes_cli.py --date 20230101 --flush
 
@@ -95,6 +101,17 @@ Examples:
         type=str,
         default=None, # Will be None if not provided
         help="Optional: Process only these specific station codes. (Default: all)"
+    )
+
+    # --- Network Argument (Optional) ---
+    parser.add_argument(
+        "-n", "--network",
+        dest="network",
+        metavar="NET",
+        nargs='+',
+        type=str,
+        default=None,
+        help="Optional: Process only stations belonging to these networks."
     )
 
     # --- Other Optional Flags ---
@@ -298,6 +315,7 @@ if __name__ == "__main__":
             start_date_str=start_date_str,
             end_date_str=end_date_str,
             stations=args.stations,
+            network=args.network,
             ppsd=args.ppsd,
             mseed=args.mseed,
             flush=args.flush,

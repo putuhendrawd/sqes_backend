@@ -189,10 +189,20 @@ class QCRepository:
 
     # --- Main Workflow Methods ---
 
-    def get_stations_to_process(self, tgl: str):
+    def get_stations_to_process(self, tgl: str, network: Optional[list] = None):
         query = self._get_query('get_stations')
-        logger.debug(f"Querying stations to process for {tgl}")
-        return self.pool.execute(query, args=(tgl,))
+        
+        args = [tgl]
+        if network:
+            # Remove trailing semicolon if present
+            query = query.strip().rstrip(';')
+            
+            placeholders = ', '.join(['%s'] * len(network))
+            query += f" AND s.network IN ({placeholders});"
+            args.extend(network)
+            
+        logger.debug(f"Querying stations to process for {tgl} (Network: {network})")
+        return self.pool.execute(query, args=tuple(args))
 
     def get_station_tuple(self, station_code: str):
         """Fetches the full station tuple for a single station."""
@@ -203,16 +213,26 @@ class QCRepository:
         else:
             return None
 
-    def get_station_tuples(self, station_list: list):
+    def get_station_tuples(self, station_list: list, network: Optional[list] = None):
         """Fetches station tuples for a specific list of stations."""
         if not station_list:
             return []
         
         placeholders = ', '.join(['%s'] * len(station_list))
         base_query = self._get_query('get_station_tuples_base')
-        final_query = f"{base_query} ({placeholders});"
         
-        return self.pool.execute(final_query, args=tuple(station_list))
+        # Add IN clause
+        query = f"{base_query} ({placeholders})"
+        
+        args = list(station_list)
+        if network:
+            net_placeholders = ', '.join(['%s'] * len(network))
+            query += f" AND s.network IN ({net_placeholders})"
+            args.extend(network)
+            
+        query += ";"
+        
+        return self.pool.execute(query, args=tuple(args))
 
     def get_straggler_stations(self, tgl: str, station_list: Optional[list] = None):
         """Fetches straggler stations, optionally filtered by a list."""
