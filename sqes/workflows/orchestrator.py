@@ -9,8 +9,8 @@ logger = logging.getLogger(__name__)
 
 
 def run_processing_workflow(start_date_str: str, end_date_str: str, 
-                            stations: Optional[list], ppsd: bool, 
-                            mseed: bool, flush: bool, log_level: int,
+                            stations: Optional[list], network: Optional[list],
+                            ppsd: bool, mseed: bool, flush: bool, log_level: int,
                             log_file_path: str,
                             basic_config: Dict[str, Any]):
     """
@@ -66,6 +66,7 @@ def run_processing_workflow(start_date_str: str, end_date_str: str,
                 log_level=log_level,
                 log_file_path=log_file_path,
                 stations=stations,
+                network=network,
                 basic_config=basic_config 
             )
         except Exception as e:

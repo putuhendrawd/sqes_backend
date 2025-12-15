@@ -1,6 +1,6 @@
 # SQES - Seismic Quality Evaluation System
 
-**Version:** 3.0.0
+**Version:** 3.1.1
 
 A Python-based automated system for evaluating seismic data quality from seismometer networks. SQES processes waveform data, computes quality metrics, and generates comprehensive quality reports with scores and visualizations.
 
@@ -53,7 +53,7 @@ This system is designed for seismology networks that need continuous, automated 
 - ✅ **Database storage**: PostgreSQL or MySQL support with connection pooling
 - ✅ **Flexible date processing**: Single day or date range processing
 - ✅ **Station filtering**: Process all stations or specific subsets
-- ✅ **Automated sensor metadata updates**: Scrape sensor information from web sources
+- ✅ **Automated station & sensor metadata updates**: Scrape metadata from web sources
 - ✅ **Health checks**: Configuration and connection validation
 
 ### Output Options
@@ -88,14 +88,16 @@ sqes_backend/
 │   │   ├── models.py        # Peterson NHNM/NLNM models
 │   │   └── utils.py         # Utility functions
 │   ├── clients/             # Data source clients (FDSN, SDS)
-│   └── services/            # Infrastructure services
-│       ├── config_loader.py # Configuration management
-│       ├── db_pool.py       # Database connection pooling
-│       ├── repository.py    # Database CRUD operations
-│       ├── logging_config.py# Logging setup
-│       ├── sensor_updater.py# Sensor metadata updates
-│       ├── health_check.py  # System health validation
-│       └── file_system.py   # File system operations
+│   ├── services/            # Infrastructure services
+│   │   ├── config_loader.py # Configuration management
+│   │   ├── db_pool.py       # Database connection pooling
+│   │   ├── repository.py    # Database CRUD operations (Repository Pattern)
+│   │   ├── logging_config.py# Logging setup
+│   │   ├── health_check.py  # System health validation
+│   │   └── file_system.py   # File system operations
+│   └── utils/               # Utility scripts
+│       ├── station_updater.py # Station metadata updates
+│       └── sensor_updater.py  # Sensor metadata updates
 ├── config/
 │   └── config.ini           # Main configuration file
 ├── logs/                    # Application logs
@@ -373,10 +375,12 @@ chmod +x sqes_cli.py
 | `-d, --date YYYYMMDD` | Process a single date |
 | `-r, --date-range START END` | Process a date range (inclusive) |
 | `-s, --station STA [STA ...]` | Process specific station codes |
+| `-n, --network NET [NET ...]` | Process specific network codes |
 | `--ppsd` | Save PPSD matrices as `.npz` files |
 | `--mseed` | Save downloaded waveforms as MiniSEED |
 | `-f, --flush` | Flush existing data (only with `--date`) |
 | `-v, --verbose` | Increase logging verbosity (`-v` = INFO, `-vv` = DEBUG) |
+| `--station-update` | Perform automatic station metadata update (triggers sensor update) |
 | `--sensor-update` | Perform automatic sensor metadata update |
 | `--check-config` | Validate configuration and test connections |
 | `--version` | Show version and exit |
@@ -393,6 +397,21 @@ chmod +x sqes_cli.py
 ./sqes_cli.py --date-range 20231201 20231207 -s BBJI GSI TNTI LUWI -v
 ```
 
+**Process specific network:**
+```bash
+./sqes_cli.py --date 20231215 --network IA -v
+```
+
+**Process multiple networks:**
+```bash
+./sqes_cli.py --date 20231215 --network IA II -v
+```
+
+**Process specific stations filtering by network:**
+```bash
+./sqes_cli.py --date 20231215 -s BBJI GSI --network IA -v
+```
+
 **Full processing with all outputs:**
 ```bash
 ./sqes_cli.py --date 20231215 --ppsd --mseed -vv
@@ -403,14 +422,22 @@ chmod +x sqes_cli.py
 ./sqes_cli.py --date 20231215 --flush -v
 ```
 
-**Process with sensor metadata update:**
+**Process with station and sensor metadata update:**
 ```bash
-./sqes_cli.py --date 20231215 --sensor-update -v
+./sqes_cli.py --date 20231215 --station-update -v
+# Automatically runs sensor update after station update
 ```
+
+
 
 **Save waveforms and PPSD matrices:**
 ```bash
 ./sqes_cli.py --date 20231215 --mseed --ppsd -v
+```
+
+**Update station metadata (and automatically sensor metadata):**
+```bash
+./sqes_cli.py --station-update
 ```
 
 **Update sensor metadata only (no processing):**
@@ -722,7 +749,7 @@ psql -h 127.0.0.1 -U your_db_user -d sqes
 **Missing data:**
 - Check if station has data for the requested date
 - Verify inventory source is correct
-- Ensure `--sensor-update` is used if metadata update is needed
+- Ensure `--station-update` or `--sensor-update` is used if metadata update is needed
 
 ---
 

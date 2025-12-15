@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 def run_single_day(date_str: str, ppsd: bool, flush: bool, mseed: bool,
                     log_level: int, log_file_path: str, basic_config: Dict[str, Any],
-                    stations: Optional[list] = None):
+                    stations: Optional[list] = None, network: Optional[list] = None):
     """
     Orchestrates the processing of stations for a single day.
     
@@ -43,6 +43,8 @@ def run_single_day(date_str: str, ppsd: bool, flush: bool, mseed: bool,
     logger.info(f"--- Starting Daily Run for {date_str} ---")
     if stations:
         logger.info(f"--- Filtering for stations: {stations} ---")
+    if network:
+        logger.info(f"--- Filtering for network: {network} ---")
     dt_start = datetime.now()
     
     # --- 1. Setup ---
@@ -61,13 +63,13 @@ def run_single_day(date_str: str, ppsd: bool, flush: bool, mseed: bool,
     qc_thresholds = load_qc_thresholds()
     logger.debug("QC thresholds loaded for workflow")
     
-    # If a station list is provided, we *never* loop. We just run once.
-    if stations:
+    # If a station list or network filter is provided, we *never* loop. We just run once.
+    if stations or network:
         run_trigger = -1 # Special flag to run once and exit
     
     while run_trigger > 0 or run_trigger == -1:
-        if stations:
-            logger.info(f"--- Processing specified stations for {tgl} ---")
+        if stations or network:
+            logger.info(f"--- Processing specified stations/network for {tgl} ---")
             run_trigger = 0 # Set to 0 so it exits after this one pass
         else:
             logger.info(f"--- Processing loop, Pass {run_trigger} for {tgl} ---")
@@ -78,7 +80,7 @@ def run_single_day(date_str: str, ppsd: bool, flush: bool, mseed: bool,
         except Exception as e:
             logger.error(f"Failed to initialize DB: {e}. Retrying in 10s...")
             time.sleep(10)
-            if stations: break # Don't retry if user specified stations
+            if stations or network: break # Don't retry if user specified stations/network
             continue
             
         # --- 2. Flush (if requested) ---
@@ -92,17 +94,17 @@ def run_single_day(date_str: str, ppsd: bool, flush: bool, mseed: bool,
         if stations:
             # We have a specific list: get tuples for them.
             logger.info(f"Querying for {len(stations)} specific stations...")
-            data = repo.get_station_tuples(stations) 
+            data = repo.get_station_tuples(stations, network=network) 
         else:
             # No list: get all unprocessed stations.
             logger.info("Querying for all unprocessed stations...")
-            data = repo.get_stations_to_process(tgl)
+            data = repo.get_stations_to_process(tgl, network=network)
         
         if data is None:
             logger.error("Error querying stations. Retrying...")
             del(db_pool)
             time.sleep(10)
-            if stations: break # Don't retry
+            if stations or network: break # Don't retry
             continue
             
         logger.info(f"Found {len(data)} stations to process.")
@@ -166,8 +168,8 @@ def run_single_day(date_str: str, ppsd: bool, flush: bool, mseed: bool,
             
         # --- 6. Final Completion Check ---
         # If we specified stations, we *always* exit now.
-        if stations:
-            logger.info("Specified stations processed. Day complete.")
+        if stations or network:
+            logger.info("Specified stations/network processed. Day complete.")
             run_trigger = 0 # Force exit
         else:
             # If we are running for ALL stations, we check for completeness.

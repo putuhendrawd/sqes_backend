@@ -51,11 +51,20 @@ Examples:
   # Run specific stations with INFO level
   ./sqes_cli.py --date-range 20230101 20230103 -s BBJI GSI -v
   
+  # Run specific network with INFO level
+  ./sqes_cli.py --date 20230101 -n IA -v
+
+  # Run specific stations and networks with INFO level (will check if stations are in networks)
+  ./sqes_cli.py --date 20230101 -s BBJI GSI -n IA II -v
+
   # Run a single day and flush the database
   ./sqes_cli.py --date 20230101 --flush
 
-  # Run a single day and update the sensor table
-  ./sqes_cli.py --date 20230101 --sensor-update
+  # Run only station update (automatically runs sensor update too)
+  ./sqes_cli.py --station-update
+  
+  # Run a single day with station and sensor update
+  ./sqes_cli.py --date 20230101 --station-update
   
   # Run only sensor update (no date processing)
   ./sqes_cli.py --sensor-update
@@ -94,6 +103,17 @@ Examples:
         help="Optional: Process only these specific station codes. (Default: all)"
     )
 
+    # --- Network Argument (Optional) ---
+    parser.add_argument(
+        "-n", "--network",
+        dest="network",
+        metavar="NET",
+        nargs='+',
+        type=str,
+        default=None,
+        help="Optional: Process only stations belonging to these networks."
+    )
+
     # --- Other Optional Flags ---
     parser.add_argument(
         "--ppsd",
@@ -124,6 +144,12 @@ Examples:
     )
 
     parser.add_argument(
+        "--station-update",
+        action="store_true",
+        help="Perform an automatic update of the 'stations' table from the station_update_url. (Default: skip update). Automatically runs --sensor-update afterwards."
+    )
+
+    parser.add_argument(
         "--sensor-update",
         action="store_true",
         help="Perform an automatic update of the 'stations_sensor' table from the sensor_update_url. (Default: skip update)"
@@ -143,7 +169,7 @@ if __name__ == "__main__":
     parser = _setup_arguments()
     args = parser.parse_args()
     
-    if not args.date and not args.date_range and not args.check_config and not args.sensor_update:
+    if not args.date and not args.date_range and not args.check_config and not args.sensor_update and not args.station_update:
         parser.print_help()
         sys.exit(0)
 
@@ -203,14 +229,38 @@ if __name__ == "__main__":
         logger.critical(f"Failed to load [basic] config: {e}. Exiting.", exc_info=True)
         sys.exit(1)
 
-    # 3. Run sensor update
+    # 3. Run station update (if requested, automatically runs sensor update too)
     use_db_config_value = str(basic_config.get('use_database', 'true')).lower()
     use_db = use_db_config_value not in ['false', 'no', '0']
     
+    if use_db and args.station_update:
+        logger.info("Running station table update...")
+        try:
+            from sqes.utils import station_updater
+            
+            db_type = basic_config['use_database']
+            db_creds = load_config(section=db_type)
+            update_url = basic_config.get('station_update_url')
+            
+            if update_url:
+                station_updater.update_station_table(db_type, db_creds, update_url)
+                logger.info("Station update complete.")
+            else:
+                logger.warning("No 'station_update_url' in config. Skipping station update.")
+                
+        except Exception as e:
+            logger.error(f"Station update failed: {e}", exc_info=True)
+            sys.exit(1)
+        
+        # Automatically run sensor update after station update
+        logger.info("Automatically running sensor update after station update...")
+        args.sensor_update = True
+    
+    # 4. Run sensor update
     if use_db and args.sensor_update:
         logger.info("Running sensor table update...")
         try:
-            from sqes.services import sensor_updater
+            from sqes.utils import sensor_updater
             
             db_type = basic_config['use_database']
             db_creds = load_config(section=db_type)
@@ -227,13 +277,13 @@ if __name__ == "__main__":
             sys.exit(1)
             
     elif not use_db:
-        logger.info("Database is disabled, skipping sensor update.")
-    else:
-        logger.info("--sensor-update not specified, skipping sensor update.")
+        logger.info("Database is disabled, skipping sensor/station updates.")
+    elif not args.sensor_update and not args.station_update:
+        logger.info("--sensor-update or --station-update not specified, skipping updates.")
 
-    # If only sensor update was requested (no date processing), exit here
-    if args.sensor_update and not args.date and not args.date_range:
-        logger.info("Sensor update completed. No date processing requested. Exiting.")
+    # If only station/sensor update was requested (no date processing), exit here
+    if (args.sensor_update or args.station_update) and not args.date and not args.date_range:
+        logger.info("Update(s) completed. No date processing requested. Exiting.")
         logger.info(f"--- {sys.argv[0]} Finished ---")
         sys.exit(0)
 
@@ -265,6 +315,7 @@ if __name__ == "__main__":
             start_date_str=start_date_str,
             end_date_str=end_date_str,
             stations=args.stations,
+            network=args.network,
             ppsd=args.ppsd,
             mseed=args.mseed,
             flush=args.flush,

@@ -7,7 +7,7 @@ from sqlalchemy import text
 
 # Import the module to test
 # (If your folder is 'processing', change 'analysis' to 'processing')
-from sqes.services import sensor_updater 
+from sqes.utils import sensor_updater 
 
 # --- Fixtures: Mocked External Services ---
 
@@ -32,15 +32,15 @@ def mock_requests_get(mocker):
     """
     mock_response = MagicMock()
     mock_response.text = FAKE_HTML
-    return mocker.patch("sqes.services.sensor_updater.requests.get", return_value=mock_response)
+    return mocker.patch("sqes.utils.sensor_updater.requests.get", return_value=mock_response)
 
 @pytest.fixture
 def mock_pandas_sql(mocker):
     """Mocks pandas' SQL read and write functions."""
     fake_station_list = pd.DataFrame({'code': ['TEST']})
-    mocker.patch("sqes.services.sensor_updater.pd.read_sql", return_value=fake_station_list)
+    mocker.patch("sqes.utils.sensor_updater.pd.read_sql", return_value=fake_station_list)
     
-    mock_to_sql = mocker.patch("sqes.services.sensor_updater.pd.DataFrame.to_sql")
+    mock_to_sql = mocker.patch("sqes.utils.sensor_updater.pd.DataFrame.to_sql")
     return mock_to_sql
 
 @pytest.fixture
@@ -49,7 +49,7 @@ def mock_pandas_concat(mocker):
     # We need to return a *real* function so that sensor_df.empty works
     # This mock just calls the real pd.concat but spies on it.
     mock_concat = MagicMock(wraps=pd.concat)
-    mocker.patch("sqes.services.sensor_updater.pd.concat", mock_concat)
+    mocker.patch("sqes.utils.sensor_updater.pd.concat", mock_concat)
     return mock_concat
 
 @pytest.fixture
@@ -66,7 +66,7 @@ def mock_sqlalchemy(mocker):
     mock_engine.begin.return_value = mock_conn
     mock_engine.dispose = MagicMock()
     
-    mocker.patch("sqes.services.sensor_updater.create_engine", return_value=mock_engine)
+    mocker.patch("sqes.utils.sensor_updater.create_engine", return_value=mock_engine)
     
     return mock_engine, mock_execute
 
