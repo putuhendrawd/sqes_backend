@@ -440,3 +440,36 @@ class QCRepository:
             logger.debug(f"Bulk inserted {len(sensor_records)} sensor records")
         else:
             logger.warning("bulk_insert_sensor_data is only supported for PostgreSQL")
+
+    def bulk_insert_latency_data(self, latency_records: list):
+        """Bulk inserts latency data records."""
+        if self.db_type == 'postgresql':
+            if not latency_records:
+                logger.debug("No latency records to insert")
+                return
+            
+            query = """
+                INSERT INTO stations_sensor_latency (net, sta, datetime, channel, last_time_channel, latency, color_code)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """
+            
+            # Prepare all records as tuples
+            # Expected dictionary keys match the columns in the query
+            args_list = [
+                (
+                    record['net'], 
+                    record['sta'], 
+                    record['datetime'], 
+                    record['channel'], 
+                    record['last_time_channel'], 
+                    record['latency'], 
+                    record['color_code']
+                )
+                for record in latency_records
+            ]
+            
+            # Use executemany for bulk insert
+            self.pool.executemany(query, args_list, commit=True)
+            logger.debug(f"Bulk inserted {len(latency_records)} latency records")
+        else:
+            logger.warning("bulk_insert_latency_data is only supported for PostgreSQL")
