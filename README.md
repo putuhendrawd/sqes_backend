@@ -1,6 +1,6 @@
 # SQES - Seismic Quality Evaluation System
 
-**Version:** 3.1.1
+**Version:** 3.2.0
 
 A Python-based automated system for evaluating seismic data quality from seismometer networks. SQES processes waveform data, computes quality metrics, and generates comprehensive quality reports with scores and visualizations.
 
@@ -54,6 +54,7 @@ This system is designed for seismology networks that need continuous, automated 
 - ✅ **Flexible date processing**: Single day or date range processing
 - ✅ **Station filtering**: Process all stations or specific subsets
 - ✅ **Automated station & sensor metadata updates**: Scrape metadata from web sources
+- ✅ **Real-time Latency Collection**: Collect and store data latency information
 - ✅ **Health checks**: Configuration and connection validation
 
 ### Output Options
@@ -97,7 +98,8 @@ sqes_backend/
 │   │   └── file_system.py   # File system operations
 │   └── utils/               # Utility scripts
 │       ├── station_updater.py # Station metadata updates
-│       └── sensor_updater.py  # Sensor metadata updates
+│       ├── sensor_updater.py  # Sensor metadata updates
+│       └── latency_collector.py # Latency data collection
 ├── config/
 │   └── config.ini           # Main configuration file
 ├── logs/                    # Application logs
@@ -333,6 +335,8 @@ spike_method = fast        # 'fast' (NumPy) or 'efficient' (Pandas)
 
 # Sensor metadata URL
 sensor_update_url = http://your.web.source/{station_code}
+station_update_url = http://your.web.source/stations.json
+latency_update_url = http://your.web.source/stations.json
 ```
 
 #### `[client]` - FDSN Settings
@@ -382,6 +386,7 @@ chmod +x sqes_cli.py
 | `-v, --verbose` | Increase logging verbosity (`-v` = INFO, `-vv` = DEBUG) |
 | `--station-update` | Perform automatic station metadata update (triggers sensor update) |
 | `--sensor-update` | Perform automatic sensor metadata update |
+| `--latency-collector` | Collect and store latency data |
 | `--check-config` | Validate configuration and test connections |
 | `--version` | Show version and exit |
 
@@ -445,9 +450,16 @@ chmod +x sqes_cli.py
 ./sqes_cli.py --sensor-update
 ```
 
+**Collect latency data:**
+```bash
+./sqes_cli.py --latency-collector
+```
+
 ### Automated Daily Processing
 
 For production deployments, you can automate daily processing using a cron job. The included `scripts/daily_run.sh` script automatically processes the previous day's data (UTC).
+
+There is also `scripts/latency_run.sh` for automating latency collection.
 
 #### Features
 

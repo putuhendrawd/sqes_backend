@@ -161,6 +161,12 @@ Examples:
         help="Check all configuration, test connection, and exit."
     )
 
+    parser.add_argument(
+        "--latency-collector",
+        action="store_true",
+        help="Collect latency data and append to 'stations_sensor_latency' table."
+    )
+
     return parser
 
 # --- Main Execution ---
@@ -169,7 +175,7 @@ if __name__ == "__main__":
     parser = _setup_arguments()
     args = parser.parse_args()
     
-    if not args.date and not args.date_range and not args.check_config and not args.sensor_update and not args.station_update:
+    if not args.date and not args.date_range and not args.check_config and not args.sensor_update and not args.station_update and not args.latency_collector:
         parser.print_help()
         sys.exit(0)
 
@@ -181,6 +187,8 @@ if __name__ == "__main__":
         log_date_str = args.date_range[0] # Use the start date
     elif args.check_config:
         log_date_str = f"config_{datetime.now().strftime('%Y%m%d')}"
+    elif args.latency_collector:
+        log_date_str = f"latency_{datetime.now().strftime('%Y%m%d_%H%M')}"
     else:
         # Fallback for --check-config or if no date is given
         log_date_str = datetime.now().strftime('%Y%m%d') 
@@ -281,8 +289,27 @@ if __name__ == "__main__":
     elif not args.sensor_update and not args.station_update:
         logger.info("--sensor-update or --station-update not specified, skipping updates.")
 
-    # If only station/sensor update was requested (no date processing), exit here
-    if (args.sensor_update or args.station_update) and not args.date and not args.date_range:
+    # 4. Run latency collector
+    if use_db and args.latency_collector:
+        logger.info("Running latency collector...")
+        try:
+            from sqes.utils import latency_collector
+            
+            db_type = basic_config['use_database']
+            db_creds = load_config(section=db_type)
+            latency_url = basic_config.get('latency_update_url')
+            
+            if latency_url:
+                latency_collector.latency_collector(db_type, db_creds, latency_url)
+            else:
+                logger.warning("No 'latency_update_url' in config. Skipping latency collection.")
+                
+        except Exception as e:
+            logger.error(f"Latency collection failed: {e}", exc_info=True)
+            sys.exit(1)
+
+    # If only station/sensor/latency update was requested (no date processing), exit here
+    if (args.sensor_update or args.station_update or args.latency_collector) and not args.date and not args.date_range:
         logger.info("Update(s) completed. No date processing requested. Exiting.")
         logger.info(f"--- {sys.argv[0]} Finished ---")
         sys.exit(0)
