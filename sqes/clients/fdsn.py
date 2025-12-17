@@ -3,6 +3,7 @@ from typing import Optional, cast
 from obspy import Stream, Trace, Inventory, UTCDateTime
 from obspy.clients.fdsn import Client as FDSNClient
 from ..core import utils
+import warnings
 
 logger = logging.getLogger(__name__)
 
@@ -17,18 +18,31 @@ def get_waveforms(client: FDSNClient, net: str, sta: str, loc: str,
     for channel_prefix in channel_prefixes:
         channel_code = f"{channel_prefix}{c}"
         try:
-            st = client.get_waveforms(net, sta, loc, channel_code, time0, time1)
-            
-            if st and st.count() > 0:
-                if st.count() > 1:
-                    # Use the helper from utils.py
-                    loc_ = utils.get_location_info(st)
-                    st = st.select(location=loc_[0])
-                
-                first_trace = cast(Trace, st[0])
-                logger.debug(f"Success: Got waveform {first_trace.id} from FDSN")
-                return st
-        
+            with warnings.catch_warnings(record=True) as caught_warnings:
+                warnings.simplefilter("always")
+                st = client.get_waveforms(net, sta, loc, channel_code, time0, time1)
+                if st and st.count() > 0:
+                    if st.count() > 1:
+                        # Use the helper from utils.py
+                        loc_ = utils.get_location_info(st)
+                        st = st.select(location=loc_[0])
+                    first_trace = cast(Trace, st[0])
+
+                    # Collect unique warnings
+                    warning_counts = {}
+                    for w in caught_warnings:
+                        msg = str(w.message).replace('\n', ' ')
+                        warning_counts[msg] = warning_counts.get(msg, 0) + 1
+                    
+                    # Log each unique warning once
+                    for msg, count in warning_counts.items():
+                        if count > 1:
+                            logger.warning(f"{net}.{sta}.{loc}.{channel_code} Stream Warning: {msg} (occurred {count} times)")
+                        else:
+                            logger.warning(f"{net}.{sta}.{loc}.{channel_code} Stream Warning: {msg}")
+                    
+                    logger.debug(f"Success: Got waveform {first_trace.id} from FDSN")
+                    return st
         except Exception:
             logger.debug(f"No data for {net}.{sta}.{loc}.{channel_code} from FDSN")
             continue
@@ -42,15 +56,31 @@ def get_inventory(client: FDSNClient, net: str, sta: str,
     Attempts to download inventory for a specific, known channel from FDSN.
     """
     try:
-        inv = client.get_stations(
-            network=net, 
-            station=sta, 
-            location=loc, 
-            channel=cha, 
-            level="response",
-            starttime=time0 # Use time0 to get the correct epoch
-        )
-        return inv
+        with warnings.catch_warnings(record=True) as caught_warnings:
+            warnings.simplefilter("always")
+            inv = client.get_stations(
+                network=net, 
+                station=sta, 
+                location=loc, 
+                channel=cha, 
+                level="response",
+                starttime=time0 # Use time0 to get the correct epoch
+            )
+
+            # Collect unique warnings
+            warning_counts = {}
+            for w in caught_warnings:
+                msg = str(w.message).replace('\n', ' ')
+                warning_counts[msg] = warning_counts.get(msg, 0) + 1
+            
+            # Log each unique warning once
+            for msg, count in warning_counts.items():
+                if count > 1:
+                    logger.warning(f"{net}.{sta}.{loc}.{cha} Inventory Warning: {msg} (occurred {count} times)")
+                else:
+                    logger.warning(f"{net}.{sta}.{loc}.{cha} Inventory Warning: {msg}")
+            
+            return inv
     except Exception as e:
         logger.warning(f"Could not get inventory for {net}.{sta}.{loc}.{cha}: {e}")
         return None
