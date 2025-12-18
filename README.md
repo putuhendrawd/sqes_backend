@@ -1,6 +1,6 @@
 # SQES - Seismic Quality Evaluation System
 
-**Version:** 3.2.0
+**Version:** 3.2.1
 
 A Python-based automated system for evaluating seismic data quality from seismometer networks. SQES processes waveform data, computes quality metrics, and generates comprehensive quality reports with scores and visualizations.
 
@@ -29,7 +29,7 @@ SQES automates the quality control process for seismic station networks by:
 - **Analyzing** Power Spectral Density (PSD) against Peterson noise models (NHNM/NLNM)
 - **Scoring** stations with weighted quality grades (0-100%)
 - **Classifying** data quality as: **Baik** (Good), **Cukup Baik** (Fair), **Buruk** (Poor), or **Mati** (Dead)
-- **Storing** results in PostgreSQL or MySQL databases
+- **Storing** results in PostgreSQL
 - **Generating** visualization plots and reports
 
 This system is designed for seismology networks that need continuous, automated quality monitoring of their stations.
@@ -50,7 +50,7 @@ This system is designed for seismology networks that need continuous, automated 
   - Spike detection (fast NumPy or memory-efficient Pandas methods)
   - Noise level analysis (PPSD)
   - Dead channel detection (GSN method)
-- ✅ **Database storage**: PostgreSQL or MySQL support with connection pooling
+- ✅ **Database storage**: PostgreSQL support with connection pooling
 - ✅ **Flexible date processing**: Single day or date range processing
 - ✅ **Station filtering**: Process all stations or specific subsets
 - ✅ **Automated station & sensor metadata updates**: Scrape metadata from web sources
@@ -142,7 +142,7 @@ graph TD
 
 - **Python**: 3.10
 - **Conda** (recommended)
-- **Database**: PostgreSQL or MySQL server
+- **Database**: PostgreSQL 
 
 ### Using Conda (Recommended)
 
@@ -214,33 +214,6 @@ You should see 8 tables listed. To verify permissions:
 psql -U sqes_user -d sqes -c "SELECT * FROM stations LIMIT 1;"
 ```
 
-#### Alternative: MySQL Setup
-
-If you prefer MySQL:
-
-```bash
-# Connect to MySQL
-mysql -u root -p
-```
-
-```sql
--- Create database
-CREATE DATABASE sqes CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
--- Create user
-CREATE USER 'sqes_user'@'localhost' IDENTIFIED BY 'your_secure_password';
-
--- Grant privileges
-GRANT ALL PRIVILEGES ON sqes.* TO 'sqes_user'@'localhost';
-FLUSH PRIVILEGES;
-
--- Exit MySQL
-EXIT;
-```
-
-> [!IMPORTANT]
-> MySQL schema is not yet available. Currently, only PostgreSQL schema (`sqes_schema_clean.sql`) is provided. If you need MySQL support, you'll need to adapt the PostgreSQL schema or request MySQL-specific schema creation.
-
 #### Troubleshooting
 
 **Permission denied errors:**
@@ -287,7 +260,7 @@ nano config/config.ini
 ```ini
 [basic]
 # Database selection
-use_database = postgresql  # or 'mysql'
+use_database = postgresql 
 
 # Waveform data source
 waveform_source = fdsn     # or 'sds' for local archives
@@ -322,7 +295,7 @@ user = your_username
 password = your_password
 ```
 
-#### `[postgresql]` or `[mysql]` - Database Credentials
+#### `[postgresql]` - Database Credentials
 
 ```ini
 [postgresql]
@@ -332,7 +305,7 @@ port = 5432
 database = your_db_name
 user = your_db_user
 password = your_db_password
-pool_size = 32
+pool_size = 1
 ```
 
 ---
