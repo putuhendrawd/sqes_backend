@@ -177,8 +177,8 @@ CREATE DATABASE sqes;
 -- Create user with password
 CREATE USER sqes_user WITH PASSWORD 'your_secure_password';
 
--- Grant connection privileges
-GRANT ALL PRIVILEGES ON DATABASE sqes TO sqes_user;
+-- Grant ownership (Automatically gives full access)
+ALTER DATABASE sqes OWNER TO sqes_user;
 
 -- Exit psql
 \q
@@ -202,33 +202,7 @@ psql -U sqes_user -d sqes -f files/sqes_schema_clean.sql
 > - `stations_site_quality` - Site quality assessments
 > - `stations_visit` - Maintenance visit tracking
 
-**Step 3: Configure Table Permissions**
-
-Connect to your database and grant necessary permissions:
-```bash
-psql -U postgres -d sqes
-```
-
-Grant table permissions to your user:
-```sql
--- Grant full access to all tables
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO sqes_user;
-
--- Grant sequence usage (for auto-increment IDs)
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO sqes_user;
-
--- Grant future table permissions (if you plan to add more tables)
-ALTER DEFAULT PRIVILEGES IN SCHEMA public 
-    GRANT ALL PRIVILEGES ON TABLES TO sqes_user;
-
-ALTER DEFAULT PRIVILEGES IN SCHEMA public 
-    GRANT USAGE, SELECT ON SEQUENCES TO sqes_user;
-
--- Exit psql
-\q
-```
-
-**Step 4: Verify Installation**
+**Step 3: Verify Installation**
 
 Verify tables were created successfully:
 ```bash
