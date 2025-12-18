@@ -53,7 +53,7 @@ def process_station_data(sta_tuple,
         return
 
     logger = setup_worker_logging(log_level, kode, log_file_path)
-    logger.info(f"PROCESS START {network}.{kode} ({sistem_sensor}). Components: {channel_components}")
+    logger.info(f"PROCESS START {network}.{kode} ({sistem_sensor}). Channel: {channel_prefixes}, Components: {channel_components}")
     
     try:
         # --- Create DB Pool and Repository ---
