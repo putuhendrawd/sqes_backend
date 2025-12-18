@@ -184,7 +184,7 @@ if __name__ == "__main__":
     if args.date:
         log_date_str = args.date
     elif args.date_range:
-        log_date_str = args.date_range[0] # Use the start date
+        log_date_str = f"daterange_{datetime.now().strftime('%Y%m%d')}" # Use the start date
     elif args.check_config:
         log_date_str = f"config_{datetime.now().strftime('%Y%m%d')}"
     elif args.latency_collector:
