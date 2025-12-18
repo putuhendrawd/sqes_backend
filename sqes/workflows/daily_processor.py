@@ -2,7 +2,7 @@
 import time
 import logging
 import multiprocessing
-from functools import partial
+
 from datetime import datetime
 from typing import Any, Optional, Dict
 
@@ -121,22 +121,15 @@ def run_single_day(date_str: str, ppsd: bool, flush: bool, mseed: bool,
             
             del(db_pool) # Close main pool before forking
 
-            process_func = partial(
-                process_station_data,
-                tgl=tgl, time0=time0, time1=time1,
-                client_credentials=client_creds,
-                basic_config=basic_config,
-                output_paths=output_paths,
-                pdf_trigger=ppsd,
-                mseed_trigger=mseed,
-                qc_thresholds=qc_thresholds
+            # Pass all static configuration to initializer so every worker runs it ONCE
+            init_args = (
+                db_creds, basic_config, log_level, log_file_path,
+                tgl, time0, time1, client_creds, output_paths,
+                ppsd, mseed, qc_thresholds
             )
             
-            # Pass static configuration to initializer so every worker runs it ONCE
-            init_args = (db_creds, basic_config, log_level, log_file_path)
-            
             with multiprocessing.Pool(processes=processes_req, initializer=init_worker, initargs=init_args) as pool:
-                pool.map(process_func, data)
+                pool.map(process_station_data, data)
         else:
             logger.info(f"No stations to process for {tgl}.")
 

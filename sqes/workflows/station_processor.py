@@ -3,7 +3,7 @@ import os
 import time
 import numpy as np
 from obspy import UTCDateTime, Trace
-from typing import Optional, cast
+from typing import Optional, cast, Dict, Any
 from obspy.clients.fdsn import Client as FDSNClient
 from obspy.clients.filesystem.sds import Client as SDSClient
 from ..services.db_pool import DBPool
@@ -15,17 +15,20 @@ from ..clients import fdsn, sds, local
 
 # Global Worker Resources
 GW_DB_POOL: Optional[DBPool] = None
+GW_CONTEXT: Dict[str, Any] = {}
 
-def init_worker(db_credentials, basic_config, log_level, log_file_path):
+def init_worker(db_credentials, basic_config, log_level, log_file_path,
+                tgl, time0, time1, client_credentials, output_paths,
+                pdf_trigger, mseed_trigger, qc_thresholds):
     """
     Initializer for worker processes.
-    Sets up DBPool and Logging once per process.
+    Sets up DBPool, Logging, and Context once per process.
     """
-    global GW_DB_POOL
+    global GW_DB_POOL, GW_CONTEXT
     
     # 1. Setup Logging
     initialize_worker_logger(log_level, log_file_path)
-    # Logger for the init phase itself (using generic station code)
+    # Logger for the init phase itself
     logger = get_station_logger("Worker Init")
     logger.debug(f"Worker process started (PID: {os.getpid()})")
 
@@ -39,6 +42,19 @@ def init_worker(db_credentials, basic_config, log_level, log_file_path):
         
     # 3. Handle Signals
     signal.signal(signal.SIGALRM, _handle_timeout)
+    
+    # 4. Populate Context
+    GW_CONTEXT.update({
+        'tgl': tgl,
+        'time0': time0,
+        'time1': time1,
+        'client_credentials': client_credentials,
+        'basic_config': basic_config,
+        'output_paths': output_paths,
+        'pdf_trigger': pdf_trigger,
+        'mseed_trigger': mseed_trigger,
+        'qc_thresholds': qc_thresholds
+    })
 
 
 def _handle_timeout(signum, frame):
@@ -46,21 +62,23 @@ def _handle_timeout(signum, frame):
     print(f"!! Process TIMEOUT after signal {signum}", flush=True)
     raise TimeoutError("Process took too long")
 
-def process_station_data(sta_tuple, 
-                         tgl: str, 
-                         time0: UTCDateTime, 
-                         time1: UTCDateTime, 
-                         client_credentials: dict, 
-                         basic_config: dict, 
-                         output_paths: dict, 
-                         pdf_trigger: bool,
-                         mseed_trigger: bool, 
-                         qc_thresholds = None):
+def process_station_data(sta_tuple):
     """
     This is the main worker function that runs in a separate process.
     It processes all components (e.g., E,N,Z or 1,2,Z) for a single station.
     """
-    global GW_DB_POOL
+    global GW_DB_POOL, GW_CONTEXT
+    
+    # Unpack Context
+    tgl = GW_CONTEXT['tgl']
+    time0 = GW_CONTEXT['time0']
+    time1 = GW_CONTEXT['time1']
+    client_credentials = GW_CONTEXT['client_credentials']
+    basic_config = GW_CONTEXT['basic_config']
+    output_paths = GW_CONTEXT['output_paths']
+    pdf_trigger = GW_CONTEXT['pdf_trigger']
+    mseed_trigger = GW_CONTEXT['mseed_trigger']
+    qc_thresholds = GW_CONTEXT['qc_thresholds']
     
     try:
         # --- UPDATED: Unpack 6 items ---
