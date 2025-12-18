@@ -317,4 +317,4 @@ def process_station_data(sta_tuple,
     
     # --- 10. Cleanup ---
     del(repo)
-    logger.info("Worker complete.")
+    logger.debug("Worker complete.")
