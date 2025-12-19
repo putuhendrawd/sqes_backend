@@ -28,14 +28,12 @@ class WarningMessageFilter(logging.Filter):
             return False
 
         # 3. CLEAN UP (Formatting)
-        # We only want to clean up WARNINGs that look like file paths
         if record.levelno == logging.WARNING:
             # Handle multi-line warnings (remove source code printout)
             if '\n' in msg:
                 msg = msg.split('\n')[0]
 
             # REGEX: Find ":123: Category: Message"
-            # It looks for the pattern ":<numbers>: <Word>: " and keeps everything after.
             match = re.search(r':\d+:\s*([^:]+):\s*(.*)$', msg)
             if match:
                 warning_type = match.group(1).strip() # e.g. UserWarning
@@ -106,18 +104,17 @@ def setup_main_logging(verbosity_level: int, log_date_str: str, log_dir: str = "
     )
     return log_level, log_file_path
 
-def setup_worker_logging(log_level: int, station_code: str, log_file_path: str = None):
+def initialize_worker_logger(log_level: int, log_file_path: str = None):
     """
-    Configures logging for a worker process.
-    Attaches filters directly to HANDLERS to guarantee they run.
+    Initializes the logging system for a worker process.
+    This should be called ONCE at the start of the worker process.
     """
-    
     # 1. Ensure Python's warnings are captured into the logging system
     logging.captureWarnings(True)
     
     # 2. Define the Formatter
     formatter = logging.Formatter(
-        f"[%(asctime)s] [{station_code:30s}] [%(levelname)-8s] %(message)s",
+        "[%(asctime)s] [%(station_code)-30s] [%(levelname)-8s] %(message)s",
         "%Y-%m-%d %H:%M:%S"
     )
     
@@ -125,41 +122,46 @@ def setup_worker_logging(log_level: int, station_code: str, log_file_path: str =
     warning_filter = WarningMessageFilter()
 
     # 4. Helper to create fresh handlers with the FILTER ATTACHED
-    def create_handlers():
-        handlers = []
-        
-        # Console Handler
-        ch = logging.StreamHandler(sys.stdout)
-        ch.setFormatter(formatter)
-        ch.addFilter(warning_filter)  
-        handlers.append(ch)
-        
-        # File Handler (if path provided)
-        if log_file_path:
-            fh = logging.FileHandler(log_file_path)
-            fh.setFormatter(formatter)
-            fh.addFilter(warning_filter) 
-            handlers.append(fh)
-            
-        return handlers
-
-    # Generate the handlers once
-    worker_handlers = create_handlers()
+    handlers = []
+    
+    # Console Handler
+    ch = logging.StreamHandler(sys.stdout)
+    ch.setFormatter(formatter)
+    ch.addFilter(warning_filter)  
+    handlers.append(ch)
+    
+    # File Handler (if path provided)
+    if log_file_path:
+        fh = logging.FileHandler(log_file_path)
+        fh.setFormatter(formatter)
+        fh.addFilter(warning_filter) 
+        handlers.append(fh)
 
     # --- LOGGER 1: The Worker's Main Logger ---
-    logger = logging.getLogger(f"worker.{station_code}")
+    # Use a generic name for the worker logger
+    logger = logging.getLogger("worker")
     logger.setLevel(log_level)
     logger.propagate = False
-    logger.handlers = []  
-    for h in worker_handlers:
+    logger.handlers = []  # Clear existing handlers if any
+    for h in handlers:
         logger.addHandler(h)
 
     # --- LOGGER 2: Python Warnings (py.warnings) ---
+    class StationContextFilter(logging.Filter):
+        def filter(self, record):
+            if not hasattr(record, 'station_code'):
+                record.station_code = "SYSTEM"
+            return True
+
+    station_context_filter = StationContextFilter()
+    for h in handlers:
+        h.addFilter(station_context_filter)
+
     warnings_logger = logging.getLogger("py.warnings")
     warnings_logger.setLevel(logging.WARNING)
     warnings_logger.propagate = False
     warnings_logger.handlers = [] 
-    for h in worker_handlers:
+    for h in handlers:
         warnings_logger.addHandler(h)
 
     # --- LOGGER 3: ObsPy Logger ---
@@ -167,7 +169,15 @@ def setup_worker_logging(log_level: int, station_code: str, log_file_path: str =
     obspy_logger.setLevel(logging.WARNING)
     obspy_logger.propagate = False
     obspy_logger.handlers = [] 
-    for h in worker_handlers:
+    for h in handlers:
         obspy_logger.addHandler(h)
 
     return logger
+
+def get_station_logger(station_code: str):
+    """
+    Returns a LoggerAdapter that injects the station code into log messages.
+    Uses the 'worker' logger initialized by initialize_worker_logger.
+    """
+    logger = logging.getLogger("worker")
+    return logging.LoggerAdapter(logger, {"station_code": station_code})

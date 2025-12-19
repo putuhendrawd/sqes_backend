@@ -1,42 +1,84 @@
 import signal
+import os
 import time
 import numpy as np
 from obspy import UTCDateTime, Trace
-from typing import Optional, cast
+from typing import Optional, cast, Dict, Any
 from obspy.clients.fdsn import Client as FDSNClient
 from obspy.clients.filesystem.sds import Client as SDSClient
 from ..services.db_pool import DBPool
-from ..services.logging_config import setup_worker_logging
+from ..services.logging_config import initialize_worker_logger, get_station_logger
 from ..services.repository import QCRepository
 from ..analysis import qc_analyzer
 from ..core import basic_metrics, ppsd_metrics, models, utils
 from ..clients import fdsn, sds, local
+
+# Global Worker Resources
+GW_DB_POOL: Optional[DBPool] = None
+GW_CONTEXT: Dict[str, Any] = {}
+
+def init_worker(db_credentials, basic_config, log_level, log_file_path,
+                tgl, time0, time1, client_credentials, output_paths,
+                pdf_trigger, mseed_trigger, qc_thresholds):
+    """
+    Initializer for worker processes.
+    Sets up DBPool, Logging, and Context once per process.
+    """
+    global GW_DB_POOL, GW_CONTEXT
+    
+    # 1. Setup Logging
+    initialize_worker_logger(log_level, log_file_path)
+    # Logger for the init phase itself
+    logger = get_station_logger("Worker Init")
+    logger.debug(f"Worker process started (PID: {os.getpid()})")
+
+    # 2. Setup DB Pool
+    try:
+        GW_DB_POOL = DBPool(**db_credentials)
+        logger.debug("Worker DB Pool initialized.")
+    except Exception as e:
+        logger.error(f"Failed to initialize Worker DB Pool: {e}")
+        raise e
+        
+    # 3. Handle Signals
+    signal.signal(signal.SIGALRM, _handle_timeout)
+    
+    # 4. Populate Context
+    GW_CONTEXT.update({
+        'tgl': tgl,
+        'time0': time0,
+        'time1': time1,
+        'client_credentials': client_credentials,
+        'basic_config': basic_config,
+        'output_paths': output_paths,
+        'pdf_trigger': pdf_trigger,
+        'mseed_trigger': mseed_trigger,
+        'qc_thresholds': qc_thresholds
+    })
+
 
 def _handle_timeout(signum, frame):
     """Timeout handler for worker processes."""
     print(f"!! Process TIMEOUT after signal {signum}", flush=True)
     raise TimeoutError("Process took too long")
 
-def process_station_data(sta_tuple, 
-                         tgl: str, 
-                         time0: UTCDateTime, 
-                         time1: UTCDateTime, 
-                         client_credentials: dict, 
-                         db_credentials: dict, 
-                         basic_config: dict, 
-                         output_paths: dict, 
-                         pdf_trigger: bool,
-                         mseed_trigger: bool, 
-                         log_level: int,
-                         log_file_path: str = None,
-                         qc_thresholds = None):
+def process_station_data(sta_tuple):
     """
     This is the main worker function that runs in a separate process.
     It processes all components (e.g., E,N,Z or 1,2,Z) for a single station.
     """
+    global GW_DB_POOL, GW_CONTEXT
     
-    # --- 1. Setup Worker Resources ---
-    signal.signal(signal.SIGALRM, _handle_timeout)
+    # Unpack Context
+    tgl = GW_CONTEXT['tgl']
+    time0 = GW_CONTEXT['time0']
+    time1 = GW_CONTEXT['time1']
+    client_credentials = GW_CONTEXT['client_credentials']
+    basic_config = GW_CONTEXT['basic_config']
+    output_paths = GW_CONTEXT['output_paths']
+    pdf_trigger = GW_CONTEXT['pdf_trigger']
+    mseed_trigger = GW_CONTEXT['mseed_trigger']
+    qc_thresholds = GW_CONTEXT['qc_thresholds']
     
     try:
         # --- UPDATED: Unpack 6 items ---
@@ -52,13 +94,17 @@ def process_station_data(sta_tuple,
         print(f"!! FATAL: Error unpacking station tuple {sta_tuple}: {e}", flush=True)
         return
 
-    logger = setup_worker_logging(log_level, kode, log_file_path)
-    logger.info(f"PROCESS START {network}.{kode} ({sistem_sensor}). Components: {channel_components}")
+    # Use LoggerAdapter
+    logger = get_station_logger(kode)
+    logger.info(f"PROCESS START {network}.{kode} ({sistem_sensor}). Channel: {channel_prefixes}, Components: {channel_components}")
     
     try:
-        # --- Create DB Pool and Repository ---
-        pool = DBPool(**db_credentials)
-        repo = QCRepository(pool, basic_config['use_database'])
+        # --- Use Global DB Pool ---
+        if GW_DB_POOL is None:
+             logger.error("Global DB Pool is not initialized!")
+             return
+             
+        repo = QCRepository(GW_DB_POOL, basic_config['use_database'])
         
         # --- Get config settings ---
         waveform_source = basic_config.get('waveform_source', 'fdsn').lower()
@@ -289,5 +335,4 @@ def process_station_data(sta_tuple,
     
     # --- 10. Cleanup ---
     del(repo)
-    del(pool)
-    logger.info("Worker complete.")
+    logger.debug("Worker complete.")

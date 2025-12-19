@@ -2,13 +2,13 @@
 import time
 import logging
 import multiprocessing
-from functools import partial
+
 from datetime import datetime
 from typing import Any, Optional, Dict
 
 from ..services.db_pool import DBPool
 from ..services.repository import QCRepository
-from .station_processor import process_station_data
+from .station_processor import process_station_data, init_worker
 from ..analysis import qc_analyzer
 from .helpers import (
     get_common_configs,
@@ -19,6 +19,8 @@ from .helpers import (
 )
 
 logger = logging.getLogger(__name__)
+
+
 
 
 def run_single_day(date_str: str, ppsd: bool, flush: bool, mseed: bool,
@@ -119,21 +121,15 @@ def run_single_day(date_str: str, ppsd: bool, flush: bool, mseed: bool,
             
             del(db_pool) # Close main pool before forking
 
-            process_func = partial(
-                process_station_data,
-                tgl=tgl, time0=time0, time1=time1,
-                client_credentials=client_creds,
-                db_credentials=db_creds,
-                basic_config=basic_config,
-                output_paths=output_paths,
-                pdf_trigger=ppsd,
-                mseed_trigger=mseed,
-                log_level=log_level,
-                log_file_path=log_file_path,
-                qc_thresholds=qc_thresholds
+            # Pass all static configuration to initializer so every worker runs it ONCE
+            init_args = (
+                db_creds, basic_config, log_level, log_file_path,
+                tgl, time0, time1, client_creds, output_paths,
+                ppsd, mseed, qc_thresholds
             )
-            with multiprocessing.Pool(processes=processes_req) as pool:
-                pool.map(process_func, data)
+            
+            with multiprocessing.Pool(processes=processes_req, initializer=init_worker, initargs=init_args) as pool:
+                pool.map(process_station_data, data)
         else:
             logger.info(f"No stations to process for {tgl}.")
 
