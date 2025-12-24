@@ -12,13 +12,6 @@ cd "$PROJECT_DIR" || exit 1
 # Ensure error log directory exists
 mkdir -p "logs/error"
 
-# Create unique error log filename with timestamp
-TIMESTAMP=$(date -u +%Y%m%d_%H%M%S)
-ERROR_LOG="$PARENT_DIR/logs/error/force_flush_$TIMESTAMP.err"
-
-# Ensure error log directory exists
-mkdir -p "$PARENT_DIR/logs/error"
-
 # Function to print usage
 usage() {
     echo "Usage: $0 -r <START_DATE> <END_DATE> [OPTIONS]"
@@ -115,6 +108,30 @@ if [[ -z "$START_DATE" ]] || [[ -z "$END_DATE" ]]; then
     usage
 fi
 
+# Validate date format (YYYYMMDD)
+if ! [[ "$START_DATE" =~ ^[0-9]{8}$ ]] || ! [[ "$END_DATE" =~ ^[0-9]{8}$ ]]; then
+    echo "Error: Dates must be in YYYYMMDD format."
+    echo "  START_DATE: $START_DATE"
+    echo "  END_DATE: $END_DATE"
+    exit 1
+fi
+
+# Validate that START_DATE <= END_DATE
+if [[ "$START_DATE" -gt "$END_DATE" ]]; then
+    echo "Error: START_DATE ($START_DATE) must be before or equal to END_DATE ($END_DATE)."
+    exit 1
+fi
+
+# Validate dates are actually valid calendar dates
+if ! date -d "$START_DATE" +%Y%m%d &>/dev/null; then
+    echo "Error: START_DATE ($START_DATE) is not a valid date."
+    exit 1
+fi
+if ! date -d "$END_DATE" +%Y%m%d &>/dev/null; then
+    echo "Error: END_DATE ($END_DATE) is not a valid date."
+    exit 1
+fi
+
 # Verify CLI exists
 if [[ ! -f "sqes_cli.py" ]]; then
     echo "Error: Could not find sqes_cli.py in $PROJECT_DIR"
@@ -134,6 +151,7 @@ else
 fi
 
 echo "Using Python: $PYTHON_EXEC"
+
 echo "=================================================================="
 echo "⚠️  FORCE FLUSH MODE ACTIVATED ⚠️"
 echo "Date Range: $START_DATE to $END_DATE"
@@ -169,7 +187,11 @@ while [[ "$CURRENT_DATE" -le "$END_DATE" ]]; do
     fi
     
     # Increment date using GNU date
-    NEXT_DATE=$(date -d "$CURRENT_DATE + 1 day" +%Y%m%d)
+    NEXT_DATE=$(date -d "$CURRENT_DATE + 1 day" +%Y%m%d 2>/dev/null)
+    if [[ -z "$NEXT_DATE" ]]; then
+        echo "❌ Error: Failed to increment date from $CURRENT_DATE"
+        exit 1
+    fi
     CURRENT_DATE="$NEXT_DATE"
 done
 
