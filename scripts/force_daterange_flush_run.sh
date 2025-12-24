@@ -4,16 +4,13 @@
 # A wrapper script to enforce flushing data over a date range by calling sqes_cli.py for single days iteratively.
 # This bypasses the safety restriction in sqes_cli.py that prevents --flush with --date-range.
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PARENT_DIR="$(dirname "$SCRIPT_DIR")"
-CLI_PATH="$PARENT_DIR/sqes_cli.py"
-
-# Create unique error log filename with timestamp
-TIMESTAMP=$(date -u +%Y%m%d_%H%M%S)
-ERROR_LOG="$PARENT_DIR/logs/error/force_flush_$TIMESTAMP.err"
+# Automatically determine project directory from script location
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$PROJECT_DIR" || exit 1
 
 # Ensure error log directory exists
-mkdir -p "$PARENT_DIR/logs/error"
+mkdir -p "logs/error"
 
 # Function to print usage
 usage() {
@@ -112,16 +109,29 @@ if [[ -z "$START_DATE" ]] || [[ -z "$END_DATE" ]]; then
 fi
 
 # Verify CLI exists
-if [[ ! -f "$CLI_PATH" ]]; then
-    echo "Error: Could not find sqes_cli.py at $CLI_PATH"
+if [[ ! -f "sqes_cli.py" ]]; then
+    echo "Error: Could not find sqes_cli.py in $PROJECT_DIR"
     exit 1
 fi
 
+# Automatically detect Python executable
+# First try: Check if we're in a conda environment
+if [ -n "$CONDA_PREFIX" ]; then
+    PYTHON_EXEC="$CONDA_PREFIX/bin/python"
+# Second try: Find sqes_backend environment in default conda location
+elif [ -f "/opt/miniconda3/envs/sqes_backend/bin/python" ]; then
+    PYTHON_EXEC="/opt/miniconda3/envs/sqes_backend/bin/python"
+# Third try: Use system python3
+else
+    PYTHON_EXEC="$(which python3)"
+fi
+
+echo "Using Python: $PYTHON_EXEC"
 echo "=================================================================="
 echo "⚠️  FORCE FLUSH MODE ACTIVATED ⚠️"
 echo "Date Range: $START_DATE to $END_DATE"
 echo "Extra Args: ${EXTRA_ARGS[@]}"
-echo "Error Log: $ERROR_LOG"
+echo "Error Logs: logs/error/force_flush_<DATE>.err (one per date)"
 echo "This will DELETE and REPROCESS data for each day in the range."
 echo "=================================================================="
 echo "Starting in 10 seconds... (Ctrl+C to cancel)"
@@ -131,14 +141,18 @@ sleep 10
 CURRENT_DATE="$START_DATE"
 
 while [[ "$CURRENT_DATE" -le "$END_DATE" ]]; do
+    # Create unique error log for this specific date
+    DATE_ERROR_LOG="logs/error/force_flush_$CURRENT_DATE.err"
+    
     echo ""
     echo ">>> Processing Date: $CURRENT_DATE with --flush <<<"
+    echo "    Error log: $DATE_ERROR_LOG"
     
     # Construct command
     # We pass --date $CURRENT_DATE and --flush
     # parse_args handles the rest
     
-    "$CLI_PATH" --date "$CURRENT_DATE" --flush -v "${EXTRA_ARGS[@]}" 2>> "$ERROR_LOG"
+    $PYTHON_EXEC sqes_cli.py --date "$CURRENT_DATE" --flush "${EXTRA_ARGS[@]}" 2>> "$DATE_ERROR_LOG"
     
     # Check return code
     RET_CODE=$?
