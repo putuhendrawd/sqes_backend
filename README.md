@@ -1,6 +1,6 @@
 # SQES - Seismic Quality Evaluation System
 
-**Version:** 3.2.1
+**Version:** 3.3.0
 
 A Python-based automated system for evaluating seismic data quality from seismometer networks. SQES processes waveform data, computes quality metrics, and generates comprehensive quality reports with scores and visualizations.
 
@@ -401,6 +401,18 @@ chmod +x sqes_cli.py
 ```bash
 ./sqes_cli.py --latency-collector
 ```
+
+### Force Flush Date Range
+
+To safely flush and reprocess data over a range of dates, use the dedicated script `scripts/force_daterange_flush_run.sh`. This bypasses the safety restriction in the main CLI that prevents flushing multiple days at once.
+
+```bash
+# Flush and reprocess a date range
+./scripts/force_daterange_flush_run.sh -r 20230101 20230105 -s BBJI -v
+```
+
+> [!WARNING]
+> This script will **DELETE** existing data for all days in the specified range before reprocessing. Use with caution.
 
 ### Automated Daily Processing
 
