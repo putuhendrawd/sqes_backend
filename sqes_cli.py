@@ -57,8 +57,14 @@ Examples:
   # Run specific stations and networks with INFO level (will check if stations are in networks)
   ./sqes_cli.py --date 20230101 -s BBJI GSI -n IA II -v
 
-  # Run a single day and flush the database
+  # Run a single day and flush all data for that date
   ./sqes_cli.py --date 20230101 --flush
+
+  # Flush only specific stations for a date
+  ./sqes_cli.py --date 20230101 --flush --station BBJI GSI
+  
+  # Flush only specific network for a date
+  ./sqes_cli.py --date 20230101 --flush --network IA
 
   # Run only station update (automatically runs sensor update too)
   ./sqes_cli.py --station-update
@@ -128,7 +134,7 @@ Examples:
     parser.add_argument(
         "-f", "--flush",
         action="store_true",
-        help="Flush existing data *only* when using --date (not --date-range)"
+        help="Flush existing data for the specified --date. Optional: use --station or --network to flush only specific stations/networks."
     )
     parser.add_argument(
         "-v", "--verbose",

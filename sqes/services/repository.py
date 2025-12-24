@@ -249,15 +249,62 @@ class QCRepository:
         
         return self.pool.execute(query, args=tuple(args))
 
-    def flush_daily_data(self, tgl: str):
-        logger.warning(f"Flushing ALL data for {tgl}!")
-        query_details = self._get_query('flush_details')
-        self.pool.execute(query_details, args=(tgl,), commit=True)
-        logger.debug(f"Flushed qc_details for {tgl}")
+    def flush_daily_data(self, tgl: str, stations: Optional[list] = None, network: Optional[list] = None):
+        """
+        Flush QC data for a specific date with optional station/network filtering.
         
-        query_results = self._get_query('flush_results')
-        self.pool.execute(query_results, args=(tgl,), commit=True)
-        logger.debug(f"Flushed qc_results/data_quality for {tgl}")
+        Args:
+            tgl: Date string (YYYYMMDD format), required
+            stations: Optional list of station codes to filter
+            network: Optional list of networks to filter
+        """
+        # Build filter description for logging
+        filter_desc = f"for {tgl}"
+        if stations:
+            filter_desc += f" (stations: {', '.join(stations)})"
+        if network:
+            filter_desc += f" (networks: {', '.join(network)})"
+        
+        logger.warning(f"Flushing data {filter_desc}!")
+        
+        # Get base queries
+        base_query_details = self._get_query('flush_details')
+        base_query_results = self._get_query('flush_results')
+        
+        # Build arguments list
+        args_details = [tgl]
+        args_results = [tgl]
+        
+        # Add station filter if provided
+        if stations:
+            placeholders = ', '.join(['%s'] * len(stations))
+            if self.db_type == 'mysql':
+                base_query_details = base_query_details.rstrip(';') + f" AND kode IN ({placeholders})"
+                base_query_results = base_query_results.rstrip(';') + f" AND kode_res IN ({placeholders})"
+            else:  # postgresql
+                base_query_details = base_query_details.rstrip(';') + f" AND code IN ({placeholders})"
+                base_query_results = base_query_results.rstrip(';') + f" AND code IN ({placeholders})"
+            args_details.extend(stations)
+            args_results.extend(stations)
+        
+        # Add network filter if provided (requires subquery)
+        elif network:
+            placeholders = ', '.join(['%s'] * len(network))
+            if self.db_type == 'mysql':
+                base_query_details = base_query_details.rstrip(';') + f" AND kode IN (SELECT code FROM stations WHERE network IN ({placeholders}))"
+                base_query_results = base_query_results.rstrip(';') + f" AND kode_res IN (SELECT code FROM stations WHERE network IN ({placeholders}))"
+            else:  # postgresql
+                base_query_details = base_query_details.rstrip(';') + f" AND code IN (SELECT code FROM stations WHERE network IN ({placeholders}))"
+                base_query_results = base_query_results.rstrip(';') + f" AND code IN (SELECT code FROM stations WHERE network IN ({placeholders}))"
+            args_details.extend(network)
+            args_results.extend(network)
+        
+        # Execute flush queries
+        self.pool.execute(base_query_details, args=tuple(args_details), commit=True)
+        logger.debug(f"Flushed qc_details {filter_desc}")
+        
+        self.pool.execute(base_query_results, args=tuple(args_results), commit=True)
+        logger.debug(f"Flushed qc_results/data_quality {filter_desc}")
 
     def check_and_delete_qc_detail(self, id_kode: str, tgl: str):
         """Checks if data exists and deletes it."""
