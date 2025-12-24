@@ -130,7 +130,7 @@ while [[ "$CURRENT_DATE" -le "$END_DATE" ]]; do
     # We pass --date $CURRENT_DATE and --flush
     # parse_args handles the rest
     
-    "$CLI_PATH" --date "$CURRENT_DATE" --flush "${EXTRA_ARGS[@]}"
+    "$CLI_PATH" --date "$CURRENT_DATE" --flush -v "${EXTRA_ARGS[@]}"
     
     # Check return code
     RET_CODE=$?
