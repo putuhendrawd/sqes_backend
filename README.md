@@ -1,6 +1,6 @@
 # SQES - Seismic Quality Evaluation System
 
-**Version:** 3.3.0
+**Version:** 3.4.0
 
 A Python-based automated system for evaluating seismic data quality from seismometer networks. SQES processes waveform data, computes quality metrics, and generates comprehensive quality reports with scores and visualizations.
 
@@ -329,7 +329,7 @@ chmod +x sqes_cli.py
 | `-n, --network NET [NET ...]` | Process specific network codes |
 | `--ppsd` | Save PPSD matrices as `.npz` files |
 | `--mseed` | Save downloaded waveforms as MiniSEED |
-| `-f, --flush` | Flush existing data (only with `--date`) |
+| `-f, --flush` | Flush existing data for the specified `--date`. Optional: use `--station` or `--network` to flush only specific stations/networks |
 | `-v, --verbose` | Increase logging verbosity (`-v` = INFO, `-vv` = DEBUG) |
 | `--station-update` | Perform automatic station metadata update (triggers sensor update) |
 | `--sensor-update` | Perform automatic sensor metadata update |
@@ -372,6 +372,16 @@ chmod +x sqes_cli.py
 **Reprocess a day (flush old data first):**
 ```bash
 ./sqes_cli.py --date 20231215 --flush -v
+```
+
+**Flush specific stations for a date:**
+```bash
+./sqes_cli.py --date 20231215 --flush --station BBJI GSI -v
+```
+
+**Flush specific network for a date:**
+```bash
+./sqes_cli.py --date 20231215 --flush --network IA -v
 ```
 
 **Process with station and sensor metadata update:**

@@ -87,8 +87,16 @@ def run_single_day(date_str: str, ppsd: bool, flush: bool, mseed: bool,
             
         # --- 2. Flush (if requested) ---
         if flush:
-            logger.info(f"Flushing data for {tgl}...")
-            repo.flush_daily_data(tgl)
+            if stations or network:
+                filter_msg = []
+                if stations:
+                    filter_msg.append(f"stations: {', '.join(stations)}")
+                if network:
+                    filter_msg.append(f"networks: {', '.join(network)}")
+                logger.info(f"Flushing data for {tgl} ({', '.join(filter_msg)})...")
+            else:
+                logger.info(f"Flushing ALL data for {tgl}...")
+            repo.flush_daily_data(tgl, stations=stations, network=network)
             logger.info("Flush success!")
             flush = False # Only flush on the first pass
         
