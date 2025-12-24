@@ -12,6 +12,13 @@ cd "$PROJECT_DIR" || exit 1
 # Ensure error log directory exists
 mkdir -p "logs/error"
 
+# Create unique error log filename with timestamp
+TIMESTAMP=$(date -u +%Y%m%d_%H%M%S)
+ERROR_LOG="$PARENT_DIR/logs/error/force_flush_$TIMESTAMP.err"
+
+# Ensure error log directory exists
+mkdir -p "$PARENT_DIR/logs/error"
+
 # Function to print usage
 usage() {
     echo "Usage: $0 -r <START_DATE> <END_DATE> [OPTIONS]"
