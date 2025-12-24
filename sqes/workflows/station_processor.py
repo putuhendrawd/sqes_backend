@@ -264,11 +264,11 @@ def process_station_data(sta_tuple):
             log_default_and_continue(cha=cha, reason="Basic metrics failed")
             continue
         
-        # --- 5. High Gap Check ---
-        if int(basic_metrics_dict['ngap']) > 2000:
-            logger.warning(f"{id_kode} high gap ({basic_metrics_dict['ngap']}) - Continuing with default")
-            log_default_and_continue(basic_metrics_dict, cha, reason="High gap count")
-            continue
+        # # --- 5. High Gap Check ---
+        # if int(basic_metrics_dict['ngap']) > 2000:
+        #     logger.warning(f"{id_kode} high gap ({basic_metrics_dict['ngap']}) - Continuing with default")
+        #     log_default_and_continue(basic_metrics_dict, cha, reason="High gap count")
+        #     continue
             
         # --- 6. Process PPSD Metrics ---
         logger.debug(f"{id_kode} Process PPSD metrics")
