@@ -8,6 +8,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PARENT_DIR="$(dirname "$SCRIPT_DIR")"
 CLI_PATH="$PARENT_DIR/sqes_cli.py"
 
+# Create unique error log filename with timestamp
+TIMESTAMP=$(date -u +%Y%m%d_%H%M%S)
+ERROR_LOG="$PARENT_DIR/logs/error/force_flush_$TIMESTAMP.err"
+
+# Ensure error log directory exists
+mkdir -p "$PARENT_DIR/logs/error"
+
 # Function to print usage
 usage() {
     echo "Usage: $0 -r <START_DATE> <END_DATE> [OPTIONS]"
@@ -114,10 +121,11 @@ echo "=================================================================="
 echo "⚠️  FORCE FLUSH MODE ACTIVATED ⚠️"
 echo "Date Range: $START_DATE to $END_DATE"
 echo "Extra Args: ${EXTRA_ARGS[@]}"
+echo "Error Log: $ERROR_LOG"
 echo "This will DELETE and REPROCESS data for each day in the range."
 echo "=================================================================="
-echo "Starting in 3 seconds... (Ctrl+C to cancel)"
-sleep 3
+echo "Starting in 10 seconds... (Ctrl+C to cancel)"
+sleep 10
 
 # Loop through dates
 CURRENT_DATE="$START_DATE"
@@ -130,7 +138,7 @@ while [[ "$CURRENT_DATE" -le "$END_DATE" ]]; do
     # We pass --date $CURRENT_DATE and --flush
     # parse_args handles the rest
     
-    "$CLI_PATH" --date "$CURRENT_DATE" --flush -v "${EXTRA_ARGS[@]}"
+    "$CLI_PATH" --date "$CURRENT_DATE" --flush -v "${EXTRA_ARGS[@]}" 2>> "$ERROR_LOG"
     
     # Check return code
     RET_CODE=$?
