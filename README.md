@@ -1,6 +1,6 @@
 # SQES - Seismic Quality Evaluation System
 
-**Version:** 3.4.3
+**Version:** 3.5.0
 
 A Python-based automated system for evaluating seismic data quality from seismometer networks. SQES processes waveform data, computes quality metrics, and generates comprehensive quality reports with scores and visualizations.
 
@@ -101,7 +101,8 @@ sqes_backend/
 │       ├── sensor_updater.py  # Sensor metadata updates
 │       └── latency_collector.py # Latency data collection
 ├── config/
-│   └── config.ini           # Main configuration file
+│   ├── global.cfg           # Main configuration file
+│   └── source.cfg           # Data source configuration file
 ├── logs/                    # Application logs
 ├── files/                   # Output files (PSD, plots, etc.)
 └── tests/                   # Unit tests
@@ -249,8 +250,8 @@ psql -U postgres -d sqes -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
 Copy the sample configuration and edit it:
 
 ```bash
-cp config/sample_config.ini config/config.ini
-nano config/config.ini
+cp config/sample_global.cfg config/global.cfg
+nano config/global.cfg
 ```
 
 ### Configuration Sections
@@ -306,6 +307,61 @@ database = your_db_name
 user = your_db_user
 password = your_db_password
 pool_size = 1
+```
+
+### Multi-Source Configuration (Advanced)
+
+SQES supports fetching data from multiple sources (different FDSN servers or SDS archives) simultaneously.
+
+#### 1. Define Sources in `global.cfg`
+
+You can add multiple sections for additional clients or archives:
+
+```ini
+# Default client
+[client]
+url = http://primary-fdsn.org
+user = user
+password = pass
+
+# Secondary client
+[client2]
+url = http://secondary-fdsn.org
+user = user
+password = pass
+
+# Dedicated inventory client (if different from waveform source)
+[inventory_client]
+url = http://inventory-fdsn.org
+```
+
+#### 2. Map Stations in `source.cfg`
+
+Create a `config/source.cfg` file to map specific stations to these sources. 
+See `config/sample_source.cfg` for a complete example.
+
+```bash
+cp config/sample_source.cfg config/source.cfg
+nano config/source.cfg
+```
+
+**Format:**
+`NETWORK STATION WAVEFORM_TYPE WAVEFORM_TAG [INVENTORY_TYPE INVENTORY_TAG]`
+
+**Examples:**
+
+```ini
+# Use [client2] for waveforms, default for inventory
+IA AAFM fdsn client2
+
+# Use [client2] for waveforms AND [inventory_client] for inventory
+IA AAI fdsn client2 fdsn inventory_client
+
+# Use SDS archive for waveforms, default local inventory
+AM AAB sds archive
+
+# Use default waveforms, but custom local inventory path [inventory2]
+GE PALK default default local inventory2
 ```
 
 ---
@@ -720,7 +776,7 @@ psql -h 127.0.0.1 -U your_db_user -d sqes
 
 **FDSN download failures:**
 - Check network connectivity
-- Verify FDSN credentials in `config.ini`
+- Verify FDSN credentials in `global.cfg`
 - Try with `-vv` for detailed error messages
 
 **Memory issues with spike detection:**

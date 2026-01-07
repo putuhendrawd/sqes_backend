@@ -9,6 +9,7 @@ from obspy.clients.filesystem.sds import Client as SDSClient
 from ..services.db_pool import DBPool
 from ..services.logging_config import initialize_worker_logger, get_station_logger
 from ..services.repository import QCRepository
+from ..services import source_mapper
 from ..analysis import qc_analyzer
 from ..core import basic_metrics, ppsd_metrics, models, utils
 from ..clients import fdsn, sds, local
@@ -55,6 +56,13 @@ def init_worker(db_credentials, basic_config, log_level, log_file_path,
         'mseed_trigger': mseed_trigger,
         'qc_thresholds': qc_thresholds
     })
+    
+    # 5. Load source mapping (cached after first load)
+    try:
+        source_mapper.load_source_mapping()
+        logger.debug("Source mapping loaded successfully")
+    except Exception as e:
+        logger.warning(f"Failed to load source mapping: {e}. Will use defaults from global.cfg")
 
 
 def _handle_timeout(signum, frame):
@@ -106,35 +114,111 @@ def process_station_data(sta_tuple):
              
         repo = QCRepository(GW_DB_POOL, basic_config['use_database'])
         
+        # --- Resolve Station-Specific Sources ---
+        # Check if this station has custom source configuration
+        station_sources = source_mapper.get_station_sources(network, kode)
+        
+        # Resolve waveform source (station-specific or default)
+        waveform_type = basic_config.get('waveform_source', 'fdsn').lower()
+        waveform_tag = 'client' if waveform_type == 'fdsn' else 'archive_path'
+        waveform_source_label = f"{waveform_type} ({waveform_tag}) [default]"
+        
+        if station_sources and station_sources.waveform:
+            # Use station-specific waveform source
+            waveform_type = station_sources.waveform.type
+            waveform_tag = station_sources.waveform.tag
+            waveform_source_label = f"{waveform_type} ({waveform_tag})"
+        
+        # Resolve inventory source (station-specific or default)
+        inventory_type = basic_config.get('inventory_source', 'fdsn').lower()
+        inventory_tag = 'inventory_client' if inventory_type == 'fdsn' else 'inventory_path'
+        inventory_source_label = f"{inventory_type} ({inventory_tag}) [default]"
+        
+        if station_sources and station_sources.inventory:
+            # Use station-specific inventory source
+            inventory_type = station_sources.inventory.type
+            inventory_tag = station_sources.inventory.tag
+            inventory_source_label = f"{inventory_type} ({inventory_tag})"
+        
+        # Log the resolved sources
+        logger.info(f"{network}.{kode} - Waveform: {waveform_source_label}, Inventory: {inventory_source_label}")
+        
         # --- Get config settings ---
-        waveform_source = basic_config.get('waveform_source', 'fdsn').lower()
-        inventory_source = basic_config.get('inventory_source', 'fdsn').lower()
-        archive_path = basic_config.get('archive_path')
-        inventory_path = basic_config.get('inventory_path')
+        waveform_source = waveform_type  # Use resolved type
+        inventory_source = inventory_type  # Use resolved type
+        
+        # Load station-specific or default configuration
+        from ..services.config_loader import load_client_config, load_archive_config, load_inventory_client_config, load_inventory_path_config
+        
+        # Get waveform-related config
+        if waveform_source == 'fdsn':
+            waveform_client_config = load_client_config(waveform_tag)
+        elif waveform_source == 'sds':
+            if waveform_tag == 'archive_path':
+                # Using default from basic config
+                archive_path = basic_config.get('archive_path')
+            else:
+                # Using specific archive section
+                archive_path = load_archive_config(waveform_tag)
+        
+        # Get inventory-related config
+        if inventory_source == 'fdsn':
+            if inventory_tag == 'inventory_client':
+                # Check if there's an [inventory_client] section, otherwise use waveform client
+                try:
+                    inventory_client_config = load_inventory_client_config(inventory_tag)
+                except:
+                    # Fall back to waveform client if inventory_client section doesn't exist
+                    inventory_client_config = waveform_client_config if waveform_source == 'fdsn' else load_client_config('client')
+            else:
+                inventory_client_config = load_inventory_client_config(inventory_tag)
+        elif inventory_source == 'local':
+            if inventory_tag == 'inventory_path':
+                # Using default from basic config
+                inventory_path = basic_config.get('inventory_path')
+            else:
+                # Using specific inventory section
+                inventory_path = load_inventory_path_config(inventory_tag)
 
         # --- Conditionally create FDSN client (only if needed) ---
         fdsn_client: Optional[FDSNClient] = None
-        if waveform_source == 'fdsn' or inventory_source == 'fdsn':
-            logger.debug("FDSN client is required, initializing...")
+        inventory_fdsn_client: Optional[FDSNClient] = None
+        
+        if waveform_source == 'fdsn':
+            logger.debug(f"Creating FDSN client for waveforms: {waveform_tag}")
             fdsn_client = FDSNClient(
-                client_credentials['url'],
-                user=client_credentials['user'],
-                password=client_credentials['password']
+                waveform_client_config['url'],
+                user=waveform_client_config['user'],
+                password=waveform_client_config['password']
             )
+        
+        if inventory_source == 'fdsn':
+            logger.debug(f"Creating FDSN client for inventory: {inventory_tag}")
+            # Check if same as waveform client to avoid duplicate
+            if waveform_source == 'fdsn' and inventory_tag == waveform_tag:
+                inventory_fdsn_client = fdsn_client
+            else:
+                inventory_fdsn_client = FDSNClient(
+                    inventory_client_config['url'],
+                    user=inventory_client_config['user'],
+                    password=inventory_client_config['password']
+                )
         
         # --- Create Waveform Data Client ---
         data_client: FDSNClient | SDSClient
         if waveform_source == 'sds':
             if not archive_path:
-                logger.error("'waveform_source' is 'sds' but 'archive_path' is not set. Worker exiting.")
+                logger.error(f"'waveform_source' is 'sds' but archive path is not set for tag '{waveform_tag}'. Worker exiting.")
                 return
             data_client = SDSClient(sds_root=archive_path)
         else:
-            data_client = cast(FDSNClient, fdsn_client) # Use FDSN client
+            if not fdsn_client:
+                raise ConnectionError("FDSN client for waveforms was not initialized.")
+            data_client = fdsn_client  # Use FDSN client
 
         # --- Validate Inventory Config ---
         if inventory_source == 'local' and not inventory_path:
-            logger.error("'inventory_source' is 'local' but 'inventory_path' is not set. Worker exiting.")
+            logger.error(f"'inventory_source' is 'local' but inventory path is not set for tag '{inventory_tag}'. Worker exiting.")
             return
 
     except Exception as e:
@@ -211,10 +295,10 @@ def process_station_data(sta_tuple):
                 tr.stats.location, tr.stats.channel, time0
             )
         else: # 'fdsn' or default
-            if not fdsn_client:
-                 raise ConnectionError("FDSN client was not initialized (check config).")
+            if not inventory_fdsn_client:
+                 raise ConnectionError("FDSN client for inventory was not initialized (check config).")
             inv = fdsn.get_inventory(
-                fdsn_client, tr.stats.network, tr.stats.station, 
+                inventory_fdsn_client, tr.stats.network, tr.stats.station, 
                 tr.stats.location, tr.stats.channel, time0
             )
         

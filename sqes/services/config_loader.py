@@ -1,4 +1,3 @@
-# sqes/services/config_loader.py
 import os
 import logging
 from configparser import ConfigParser
@@ -6,19 +5,19 @@ from typing import Dict, Any
 
 logger = logging.getLogger(__name__)
 
-def load_config(filename: str = 'config.ini', section: str = 'postgresql') -> Dict[str, Any]:
+def load_config(filename: str = 'global.cfg', section: str = 'postgresql') -> Dict[str, Any]:
     """
-    Loads a specific section from the config.ini file.
+    Loads a specific section from the global.cfg file.
     
     Args:
-        filename (str): The name of the config file (default: 'config.ini').
+        filename (str): The name of the config file (default: 'global.cfg').
         section (str): The [section] in the INI file to load.
 
     Returns:
         Dict[str, Any]: A dictionary of the settings.
         
     Raises:
-        FileNotFoundError: If the config.ini file cannot be found.
+        FileNotFoundError: If the global.cfg file cannot be found.
         Exception: If the specified section is not found in the file.
     """
     module_path = os.path.dirname(os.path.abspath(__file__))
@@ -51,6 +50,9 @@ def load_config(filename: str = 'config.ini', section: str = 'postgresql') -> Di
                 except ValueError:
                     logger.warning(f"Invalid integer value for '{key}': {value}. Using None.")
                     config[key] = None
+            elif key in ('user', 'password') and not value:
+                # Convert empty username/password to None for FDSN clients
+                config[key] = None
             else:
                 config[key] = value
             # --- END UPDATED LOGIC ---
@@ -61,7 +63,7 @@ def load_config(filename: str = 'config.ini', section: str = 'postgresql') -> Di
     return config
 
 
-def load_qc_thresholds(filename: str = 'config.ini'):
+def load_qc_thresholds(filename: str = 'global.cfg'):
     """
     Loads QC thresholds from the config file.
     
@@ -69,7 +71,7 @@ def load_qc_thresholds(filename: str = 'config.ini'):
     the corresponding default value will be used.
     
     Args:
-        filename (str): The name of the config file (default: 'config.ini').
+        filename (str): The name of the config file (default: 'global.cfg').
         
     Returns:
         QCThresholds: QCThresholds object with values from config or defaults
@@ -161,3 +163,77 @@ def load_qc_thresholds(filename: str = 'config.ini'):
     
     logger.info(f"Loaded QC thresholds from {config_path} ({len(kwargs)} custom parameters)")
     return QCThresholds(**default_dict)
+
+
+def load_client_config(tag: str = 'client') -> Dict[str, Any]:
+    """
+    Load a specific FDSN client configuration section from global.cfg.
+    
+    Args:
+        tag: The section name (e.g., 'client', 'client2', 'inventory_client')
+        
+    Returns:
+        Dictionary with client configuration (url, user, password)
+        
+    Raises:
+        Exception: If the specified section is not found
+    """
+    return load_config(section=tag)
+
+
+def load_archive_config(tag: str = 'archive') -> str:
+    """
+    Load SDS archive path from a specific section in global.cfg.
+    
+    Args:
+        tag: The section name (e.g., 'archive', 'archive2')
+        
+    Returns:
+        Archive path as string
+        
+    Raises:
+        Exception: If the specified section is not found or archive_path is missing
+    """
+    config = load_config(section=tag)
+    archive_path = config.get('archive_path')
+    if not archive_path:
+        raise Exception(f"'archive_path' not found in [{tag}] section")
+    return archive_path
+
+
+def load_inventory_client_config(tag: str = 'inventory_client') -> Dict[str, Any]:
+    """
+    Load a specific FDSN inventory client configuration section from global.cfg.
+    
+    This is used when you want a different FDSN endpoint for inventory than waveforms.
+    
+    Args:
+        tag: The section name (e.g., 'inventory_client', 'inventory_client2')
+        
+    Returns:
+        Dictionary with client configuration (url, user, password)
+        
+    Raises:
+        Exception: If the specified section is not found
+    """
+    return load_config(section=tag)
+
+
+def load_inventory_path_config(tag: str = 'inventory') -> str:
+    """
+    Load local inventory path from a specific section in global.cfg.
+    
+    Args:
+        tag: The section name (e.g., 'inventory', 'inventory2')
+        
+    Returns:
+        Inventory path as string
+        
+    Raises:
+        Exception: If the specified section is not found or inventory_path is missing
+    """
+    config = load_config(section=tag)
+    inventory_path = config.get('inventory_path')
+    if not inventory_path:
+        raise Exception(f"'inventory_path' not found in [{tag}] section")
+    return inventory_path
