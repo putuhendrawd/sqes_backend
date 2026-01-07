@@ -1,6 +1,6 @@
 # SQES - Seismic Quality Evaluation System
 
-**Version:** 3.5.0
+**Version:** 3.5.1
 
 A Python-based automated system for evaluating seismic data quality from seismometer networks. SQES processes waveform data, computes quality metrics, and generates comprehensive quality reports with scores and visualizations.
 
@@ -265,11 +265,11 @@ use_database = postgresql
 
 # Waveform data source
 waveform_source = fdsn     # or 'sds' for local archives
-archive_path = /path/to/sds/archive  # Only if waveform_source = sds
+# archive_path is now in [archive] section
 
 # Inventory source
 inventory_source = fdsn    # or 'local'
-inventory_path = /path/to/inventory/folder  # Only if inventory_source = local
+# inventory_path is now in [inventory] section
 
 # Output directories
 outputpsd = /your/directory/path/sqes_output/psd_npz
@@ -307,6 +307,18 @@ database = your_db_name
 user = your_db_user
 password = your_db_password
 pool_size = 1
+
+#### `[archive]` - SDS Archive Paths
+```ini
+[archive]
+archive_path = /path/to/sds/archive
+```
+
+#### `[inventory]` - Local Inventory Paths
+```ini
+[inventory]
+inventory_path = /path/to/inventory/folder
+```
 ```
 
 ### Multi-Source Configuration (Advanced)
