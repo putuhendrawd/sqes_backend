@@ -142,7 +142,7 @@ def check_configurations():
         
         # Check if config file has [qc_thresholds] section
         module_path = os.path.dirname(os.path.abspath(__file__))
-        config_path = os.path.join(module_path, '..', '..', 'config', 'config.ini')
+        config_path = os.path.join(module_path, '..', '..', 'config', 'global.cfg')
         
         has_custom_section = False
         custom_params = []
@@ -184,8 +184,8 @@ def check_configurations():
             custom_count = sum(1 for p in custom_set if getattr(thresholds, p, None) != getattr(DEFAULT_THRESHOLDS, p, None))
             logger.info(f"   Summary: {custom_count} customized, {len(all_params) - custom_count} using defaults")
         else:
-            logger.info("   To customize, add [qc_thresholds] section to config.ini")
-            logger.info("   See config/sample_config.ini for all available parameters")
+            logger.info("   To customize, add [qc_thresholds] section to global.cfg")
+            logger.info("   See config/sample_global.cfg for all available parameters")
 
         
     except Exception as e:
