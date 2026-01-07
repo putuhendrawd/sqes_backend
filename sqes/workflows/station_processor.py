@@ -120,7 +120,7 @@ def process_station_data(sta_tuple):
         
         # Resolve waveform source (station-specific or default)
         waveform_type = basic_config.get('waveform_source', 'fdsn').lower()
-        waveform_tag = 'client' if waveform_type == 'fdsn' else 'archive_path'
+        waveform_tag = 'client' if waveform_type == 'fdsn' else 'archive'
         waveform_source_label = f"{waveform_type} ({waveform_tag}) [default]"
         
         if station_sources and station_sources.waveform:
@@ -131,7 +131,7 @@ def process_station_data(sta_tuple):
         
         # Resolve inventory source (station-specific or default)
         inventory_type = basic_config.get('inventory_source', 'fdsn').lower()
-        inventory_tag = 'inventory_client' if inventory_type == 'fdsn' else 'inventory_path'
+        inventory_tag = 'inventory_client' if inventory_type == 'fdsn' else 'inventory'
         inventory_source_label = f"{inventory_type} ({inventory_tag}) [default]"
         
         if station_sources and station_sources.inventory:
@@ -154,12 +154,8 @@ def process_station_data(sta_tuple):
         if waveform_source == 'fdsn':
             waveform_client_config = load_client_config(waveform_tag)
         elif waveform_source == 'sds':
-            if waveform_tag == 'archive_path':
-                # Using default from basic config
-                archive_path = basic_config.get('archive_path')
-            else:
-                # Using specific archive section
-                archive_path = load_archive_config(waveform_tag)
+            # Always load from archive section
+            archive_path = load_archive_config(waveform_tag)
         
         # Get inventory-related config
         if inventory_source == 'fdsn':
@@ -173,12 +169,8 @@ def process_station_data(sta_tuple):
             else:
                 inventory_client_config = load_inventory_client_config(inventory_tag)
         elif inventory_source == 'local':
-            if inventory_tag == 'inventory_path':
-                # Using default from basic config
-                inventory_path = basic_config.get('inventory_path')
-            else:
-                # Using specific inventory section
-                inventory_path = load_inventory_path_config(inventory_tag)
+            # Always load from inventory section
+            inventory_path = load_inventory_path_config(inventory_tag)
 
         # --- Conditionally create FDSN client (only if needed) ---
         fdsn_client: Optional[FDSNClient] = None

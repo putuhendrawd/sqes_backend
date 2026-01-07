@@ -98,11 +98,10 @@ def check_configurations():
     # --- 4. Check Local Paths ---
     logger.info("--- Checking Local Paths ---")
     if waveform_source == 'sds':
-        archive_path_str = basic_config.get('archive_path')
-        if not archive_path_str:
-            logger.error("❌ SDS 'archive_path': FAILED (key not set in config)")
-            all_ok = False
-        else:
+        try:
+            from .config_loader import load_archive_config
+            archive_path_str = load_archive_config('archive')
+            
             archive_path = Path(archive_path_str)
             if not archive_path.is_dir():
                 logger.error(f"❌ SDS 'archive_path': FAILED (Not a valid directory: {archive_path})")
@@ -115,19 +114,24 @@ def check_configurations():
                     logger.error(f"❌ Database connection: FAILED")
                     logger.error(f"   Error: {e}")
                     all_ok = False
+        except Exception as e:
+            logger.error(f"❌ SDS 'archive_path': FAILED (Could not load from [archive] section: {e})")
+            all_ok = False
 
     if inventory_source == 'local':
-        inventory_path_str = basic_config.get('inventory_path')
-        if not inventory_path_str:
-            logger.error("❌ Local 'inventory_path': FAILED (key not set in config)")
-            all_ok = False
-        else:
+        try:
+            from .config_loader import load_inventory_path_config
+            inventory_path_str = load_inventory_path_config('inventory')
+            
             inventory_path = Path(inventory_path_str)
             if not inventory_path.is_dir():
                 logger.error(f"❌ Local 'inventory_path': FAILED (Not a valid directory: {inventory_path})")
                 all_ok = False
             else:
                 logger.info(f"✅ Local 'inventory_path': OK ({inventory_path})")
+        except Exception as e:
+            logger.error(f"❌ Local 'inventory_path': FAILED (Could not load from [inventory] section: {e})")
+            all_ok = False
 
     # --- 5. Check QC Thresholds ---
     logger.info("--- QC Analysis Thresholds ---")
