@@ -35,7 +35,12 @@ def load_config(filename: str = 'global.cfg', section: str = 'postgresql') -> Di
         
         # --- THIS IS THE FIX ---
         # Define all keys that should be converted to integers
-        int_keys = {'cpu_number_used', 'pool_size'}
+        int_keys = {
+            'cpu_number_used', 'pool_size', 
+            'ram_soft_start_initial', 'ram_soft_start_initial_worker',
+            'ram_soft_start_interval', 'ram_allocation_delay'
+        }
+        float_keys = {'ram_limit_gb', 'ram_station_default_gb'}
         # --- END FIX ---
 
         params = parser.items(section)
@@ -49,6 +54,12 @@ def load_config(filename: str = 'global.cfg', section: str = 'postgresql') -> Di
                     config[key] = int(value)
                 except ValueError:
                     logger.warning(f"Invalid integer value for '{key}': {value}. Using None.")
+                    config[key] = None
+            elif key in float_keys and value:
+                try:
+                    config[key] = float(value)
+                except ValueError:
+                    logger.warning(f"Invalid float value for '{key}': {value}. Using None.")
                     config[key] = None
             elif key in ('user', 'password') and not value:
                 # Convert empty username/password to None for FDSN clients
@@ -237,3 +248,42 @@ def load_inventory_path_config(tag: str = 'inventory') -> str:
     if not inventory_path:
         raise Exception(f"'inventory_path' not found in [{tag}] section")
     return inventory_path
+
+def load_stations_config(filename: str = 'stations.cfg') -> Dict[str, float]:
+    """
+    Loads station RAM usage configuration.
+    
+    Returns:
+        Dict: Key is "Network.Station", Value is RAM usage in GB (float)
+    """
+    module_path = os.path.dirname(os.path.abspath(__file__))
+    config_path = os.path.join(module_path, '..', '..', 'config', filename)
+    
+    stations_map = {}
+    
+    if not os.path.exists(config_path):
+        logger.info(f"Stations config file not found at {config_path}. Using global defaults.")
+        return stations_map
+        
+    try:
+        with open(config_path, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                
+                parts = line.split()
+                if len(parts) >= 3:
+                    net = parts[0]
+                    sta = parts[1]
+                    try:
+                        ram_gb = float(parts[2])
+                        key = f"{net}.{sta}"
+                        stations_map[key] = ram_gb
+                    except ValueError:
+                        logger.warning(f"Invalid RAM value in stations.cfg for {net}.{sta}: {parts[2]}")
+    except Exception as e:
+        logger.error(f"Failed to load stations.cfg: {e}")
+        
+    logger.info(f"Loaded RAM estimates for {len(stations_map)} stations from {filename}")
+    return stations_map

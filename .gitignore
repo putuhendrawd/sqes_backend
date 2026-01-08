@@ -6,6 +6,7 @@
 *credential*
 config/global.cfg
 config/source.cfg
+config/stations.cfg
 
 # ignore temporary file
 *temp*

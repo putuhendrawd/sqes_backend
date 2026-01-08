@@ -1,6 +1,6 @@
 # SQES - Seismic Quality Evaluation System
 
-**Version:** 3.5.1
+**Version:** 3.6.0
 
 A Python-based automated system for evaluating seismic data quality from seismometer networks. SQES processes waveform data, computes quality metrics, and generates comprehensive quality reports with scores and visualizations.
 
@@ -55,6 +55,10 @@ This system is designed for seismology networks that need continuous, automated 
 - ✅ **Station filtering**: Process all stations or specific subsets
 - ✅ **Automated station & sensor metadata updates**: Scrape metadata from web sources
 - ✅ **Real-time Latency Collection**: Collect and store data latency information
+- ✅ **Advanced RAM Management**: 
+  - Predictive Memory Control (avoids OOM errors)
+  - Soft Start / Dynamic Concurrency Ramp-up
+  - Per-station RAM estimation weights
 - ✅ **Health checks**: Configuration and connection validation
 
 ### Output Options
@@ -99,9 +103,11 @@ sqes_backend/
 │   └── utils/               # Utility scripts
 │       ├── station_updater.py # Station metadata updates
 │       ├── sensor_updater.py  # Sensor metadata updates
-│       └── latency_collector.py # Latency data collection
+│       ├── latency_collector.py # Latency data collection
+│       └── ram_manager.py     # RAM management utility
 ├── config/
 │   ├── global.cfg           # Main configuration file
+│   ├── stations.cfg         # Station RAM estimates
 │   └── source.cfg           # Data source configuration file
 ├── logs/                    # Application logs
 ├── files/                   # Output files (PSD, plots, etc.)
@@ -281,10 +287,27 @@ outputmseed = /your/directory/path/sqes_output/mseed_files
 cpu_number_used = 16       # Number of parallel processes
 spike_method = fast        # 'fast' (NumPy) or 'efficient' (Pandas)
 
+# RAM Management
+ram_limit_gb = 24.0        # Max system RAM to usage (GB)
+ram_station_default_gb = 15.0 # Estimate per station if unknown
+ram_allocation_delay = 20  # Seconds to reserve RAM for phantom load
+ram_soft_start_initial_worker = 4 # Initial workers
+ram_soft_start_interval = 10      # Seconds between adding workers
+
 # Sensor metadata URL
 sensor_update_url = http://your.web.source/{station_code}
 station_update_url = http://your.web.source/stations.json
 latency_update_url = http://your.web.source/stations.json
+```
+
+#### `config/stations.cfg` - Station Weights (New)
+You can define custom RAM estimates for specific stations in `config/stations.cfg`. This helps the predictive RAM manager handle heavy stations (e.g., high sample rate or many channels) more accurately.
+
+Format: `Network Station EstimatedGB`
+
+```ini
+IA BBJI 30.0
+IA GSI  10.0
 ```
 
 #### `[client]` - FDSN Settings
@@ -794,6 +817,11 @@ psql -h 127.0.0.1 -U your_db_user -d sqes
 **Memory issues with spike detection:**
 - Use `spike_method = efficient` in config
 - Reduce `cpu_number_used` to lower parallel load
+
+**System running out of RAM (OOM):**
+- Set `ram_limit_gb` in `global.cfg` (e.g., `ram_limit_gb = 20.0`)
+- Tune `ram_station_default_gb` if your stations are larger than default (15GB)
+- Add entries to `config/stations.cfg` for known heavy stations
 
 **Missing data:**
 - Check if station has data for the requested date
