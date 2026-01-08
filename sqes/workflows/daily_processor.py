@@ -2,6 +2,7 @@
 import time
 import logging
 import multiprocessing
+import psutil
 
 from datetime import datetime
 from typing import Any, Optional, Dict
@@ -10,6 +11,8 @@ from ..services.db_pool import DBPool
 from ..services.repository import QCRepository
 from .station_processor import process_station_data, init_worker
 from ..analysis import qc_analyzer
+from ..services.config_loader import load_stations_config
+from ..utils.ram_manager import RAMManager
 from .helpers import (
     get_common_configs,
     setup_paths_and_times,
@@ -19,8 +22,6 @@ from .helpers import (
 )
 
 logger = logging.getLogger(__name__)
-
-
 
 
 def run_single_day(date_str: str, ppsd: bool, flush: bool, mseed: bool,
@@ -136,8 +137,93 @@ def run_single_day(date_str: str, ppsd: bool, flush: bool, mseed: bool,
                 ppsd, mseed, qc_thresholds
             )
             
+            # --- RAM Manager Setup ---
+            stations_ram_map = load_stations_config()
+            ram_manager = RAMManager(basic_config, stations_ram_map)
+            # Track previous concurrency for logging trends
+            last_logged_concurrency = ram_manager.current_concurrency
+            
             with multiprocessing.Pool(processes=processes_req, initializer=init_worker, initargs=init_args) as pool:
-                pool.map(process_station_data, data)
+                
+                active_tasks = [] # List of AsyncResult objects
+                total_stations = len(data)
+                submitted_count = 0
+                
+                # Iterator management
+                data_iterator = iter(data)
+                pending_station = None 
+                
+                while submitted_count < total_stations or active_tasks:
+                    # 1. Clean up completed tasks
+                    active_tasks = [t for t in active_tasks if not t.ready()]
+                    
+                    # 2. Try to soft start ramp up
+                    if ram_manager.try_ramp_up_concurrency(processes_req):
+                        logger.debug("Soft Start increment")
+                        pass
+
+                    # 3. Prepare Next Station (if needed)
+                    if pending_station is None and submitted_count < total_stations:
+                        try:
+                            pending_station = next(data_iterator)
+                        except StopIteration:
+                            pass
+                            
+                    # 4. Check RAM Safety
+                    can_submit = False
+                    
+                    if pending_station:
+                        is_safe, msg = ram_manager.check_ram_metrics(pending_station)
+                        if is_safe:
+                            can_submit = True
+                        else:
+                            # RAM Full
+                            can_submit = False
+                            now = time.time()
+                            # Log warning periodically
+                            if int(now) % 5 == 0:
+                                logger.warning(msg + ". Waiting...")
+                    
+                    # 5. Submit Logic
+                    if can_submit and len(active_tasks) < ram_manager.current_concurrency:
+                        # Submit pending_station
+                        task = pool.apply_async(process_station_data, (pending_station,))
+                        active_tasks.append(task)
+                        
+                        # Record submission in RAM Manager
+                        ram_manager.record_submission(pending_station)
+                        
+                        # Clear pending and increment
+                        pending_station = None
+                        submitted_count += 1
+                    else:
+                        # Wait bit
+                        time.sleep(0.5)
+
+                    # --- Periodic Logging ---
+                    now = time.time()
+                    if int(now) % 10 == 0:
+                        real_gb, phantom_gb, limit_gb = ram_manager.get_ram_info()
+                        limit_str = f"{limit_gb:.1f}" if limit_gb > 0 else "Unset"
+                        
+                        curr = ram_manager.current_concurrency
+                        if curr > last_logged_concurrency:
+                            trend = "(↑)"
+                        elif curr < last_logged_concurrency:
+                            trend = "(↓)"
+                        else:
+                            trend = "(=)"
+                        last_logged_concurrency = curr
+
+                        logger.debug(
+                            f"Status: Active={len(active_tasks)}/{curr} {trend} "
+                            f"(Target={processes_req}), "
+                            f"RAM: Real={real_gb:.1f}G + Phantom={phantom_gb:.1f}G < Limit={limit_str}G"
+                        )
+
+                # Wait for all to finish
+                pool.close()
+                pool.join()
         else:
             logger.info(f"No stations to process for {tgl}.")
 
