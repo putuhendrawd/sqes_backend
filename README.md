@@ -300,16 +300,6 @@ station_update_url = http://your.web.source/stations.json
 latency_update_url = http://your.web.source/stations.json
 ```
 
-#### `config/stations.cfg` - Station Weights (New)
-You can define custom RAM estimates for specific stations in `config/stations.cfg`. This helps the predictive RAM manager handle heavy stations (e.g., high sample rate or many channels) more accurately.
-
-Format: `Network Station EstimatedGB`
-
-```ini
-IA BBJI 30.0
-IA GSI  10.0
-```
-
 #### `[client]` - FDSN Settings
 
 ```ini
@@ -330,6 +320,7 @@ database = your_db_name
 user = your_db_user
 password = your_db_password
 pool_size = 1
+```
 
 #### `[archive]` - SDS Archive Paths
 ```ini
@@ -341,7 +332,6 @@ archive_path = /path/to/sds/archive
 ```ini
 [inventory]
 inventory_path = /path/to/inventory/folder
-```
 ```
 
 ### Multi-Source Configuration (Advanced)
@@ -397,6 +387,18 @@ AM AAB sds archive
 
 # Use default waveforms, but custom local inventory path [inventory2]
 GE PALK default default local inventory2
+```
+
+### Station Weights Configuration
+
+#### `config/stations.cfg` - Custom RAM Estimates
+You can define custom RAM estimates for specific stations in `config/stations.cfg`. This helps the predictive RAM manager handle heavy stations (e.g., high sample rate or many channels) more accurately.
+
+Format: `Network Station EstimatedGB`
+
+```ini
+IA BBJI 30.0
+IA GSI  10.0
 ```
 
 ---
