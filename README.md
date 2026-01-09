@@ -1,6 +1,6 @@
 # SQES - Seismic Quality Evaluation System
 
-**Version:** 3.6.0
+**Version:** 3.6.1
 
 A Python-based automated system for evaluating seismic data quality from seismometer networks. SQES processes waveform data, computes quality metrics, and generates comprehensive quality reports with scores and visualizations.
 

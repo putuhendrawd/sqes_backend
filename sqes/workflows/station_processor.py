@@ -56,13 +56,6 @@ def init_worker(db_credentials, basic_config, log_level, log_file_path,
         'mseed_trigger': mseed_trigger,
         'qc_thresholds': qc_thresholds
     })
-    
-    # 5. Load source mapping (cached after first load)
-    try:
-        source_mapper.load_source_mapping()
-        logger.debug("Source mapping loaded successfully")
-    except Exception as e:
-        logger.warning(f"Failed to load source mapping: {e}. Will use defaults from global.cfg")
 
 
 def _handle_timeout(signum, frame):
@@ -89,9 +82,10 @@ def process_station_data(sta_tuple):
     qc_thresholds = GW_CONTEXT['qc_thresholds']
     
     try:
-        # --- UPDATED: Unpack 6 items ---
+        # --- UPDATED: Unpack 7 items ---
         (network, kode, location, 
-         sistem_sensor, channel_prefixes_str, channel_components_str) = sta_tuple
+         sistem_sensor, channel_prefixes_str, channel_components_str,
+         station_sources) = sta_tuple
          
         location = location or ''
         channel_prefixes = (channel_prefixes_str or '').split(',')
@@ -113,10 +107,6 @@ def process_station_data(sta_tuple):
              return
              
         repo = QCRepository(GW_DB_POOL, basic_config['use_database'])
-        
-        # --- Resolve Station-Specific Sources ---
-        # Check if this station has custom source configuration
-        station_sources = source_mapper.get_station_sources(network, kode)
         
         # Resolve waveform source (station-specific or default)
         waveform_type = basic_config.get('waveform_source', 'fdsn').lower()
@@ -301,7 +291,7 @@ def process_station_data(sta_tuple):
         
         # --- 3. Save Waveform & Plot ---
         try:
-            signal.alarm(180) # 3 min timeout
+            signal.alarm(300) # 3 min timeout
             cha = tr.stats.channel
             mseed_naming_code = f"{outputmseed}/{kode}_{cha[-1]}.mseed"
             if mseed_trigger:

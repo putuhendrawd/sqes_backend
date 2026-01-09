@@ -3,6 +3,7 @@ import time
 import logging
 import multiprocessing
 import psutil
+import random
 
 from datetime import datetime
 from typing import Any, Optional, Dict
@@ -12,6 +13,7 @@ from ..services.repository import QCRepository
 from .station_processor import process_station_data, init_worker
 from ..analysis import qc_analyzer
 from ..services.config_loader import load_stations_config
+from ..services import source_mapper
 from ..utils.ram_manager import RAMManager
 from .helpers import (
     get_common_configs,
@@ -122,6 +124,23 @@ def run_single_day(date_str: str, ppsd: bool, flush: bool, mseed: bool,
 
         # --- 4. Run Multiprocessing ---
         if data:
+            # Shuffle the data to process in random order
+            random.shuffle(data)
+
+            # --- Inject Source Config into Tuples ---
+            # We do this here to avoid doing it inside every worker process
+            logger.info("Injecting source configuration into station tuples...")
+            source_map = source_mapper.load_source_mapping()
+            enriched_data = []
+            for item in data:
+                # item structure: (network, station, location, sensor, ch_prefix, ch_comp)
+                net, sta_code = item[0], item[1]
+                # Get specific config or None
+                config = source_map.get((net, sta_code))
+                # Create new tuple with config appended
+                enriched_data.append(item + (config,))
+            data = enriched_data
+
             if basic_config.get('cpu_number_used'):
                 processes_req = int(basic_config['cpu_number_used'])
             else:

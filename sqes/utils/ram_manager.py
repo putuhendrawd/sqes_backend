@@ -13,8 +13,14 @@ class RAMManager:
         self.basic_config = basic_config
         self.stations_map = stations_ram_map
         
-        # 1. RAM Limits
+        # 0. Default 
         self.ram_limit_bytes = 0.0
+        self.default_station_gb = 15.0
+        self.allocation_delay = 20.0
+        self.soft_start_initial = 6
+        self.soft_start_interval = 5.0
+        
+        # 1. RAM Limits
         if basic_config.get('ram_limit_gb'):
             try:
                 gb = float(basic_config['ram_limit_gb'])
@@ -24,7 +30,6 @@ class RAMManager:
                 pass
                 
         # 2. Station Weights
-        self.default_station_gb = 15.0
         if basic_config.get('ram_station_default_gb'):
             try:
                 self.default_station_gb = float(basic_config['ram_station_default_gb'])
@@ -32,26 +37,23 @@ class RAMManager:
                 pass
                 
         # 3. Phantom Load
-        self.allocation_delay = 20
         if basic_config.get('ram_allocation_delay'):
              try:
-                 self.allocation_delay = int(basic_config['ram_allocation_delay'])
+                 self.allocation_delay = float(basic_config['ram_allocation_delay'])
              except ValueError:
                  pass
         self.phantom_tasks: List[Tuple[float, float]] = [] # (start_time, gb_estimate)
         
         # 4. Soft Start Configs
-        self.soft_start_initial = 6
         if basic_config.get('ram_soft_start_initial_worker'):
              try:
                  self.soft_start_initial = int(basic_config['ram_soft_start_initial_worker'])
              except ValueError:
                  pass
                  
-        self.soft_start_interval = 5
         if basic_config.get('ram_soft_start_interval'):
              try:
-                 self.soft_start_interval = int(basic_config['ram_soft_start_interval'])
+                 self.soft_start_interval = float(basic_config['ram_soft_start_interval'])
              except ValueError:
                  pass
 
